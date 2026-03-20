@@ -1,0 +1,8 @@
+DATOS DE CONEXIÓN — SISTEMASDETICKETS
+======================================
+URL      : https://wryyzyjdlyczxmulwzzy.supabase.co
+Anon Key : eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyeXl6eWpkbHljenhtdWx3enp5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwMTE4NjgsImV4cCI6MjA4OTU4Nzg2OH0.ppTbR4mtMJQWEuVc_ddcfAb0Rnlwq4zmzlbOkjkTvdE
+Host     : db.xxxxxxxxxxxxxx.supabase.co
+Puerto   : 5432
+Base     : postgres
+Usuario  : postgres
