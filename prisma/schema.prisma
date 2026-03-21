@@ -1,0 +1,51 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+CREATE TABLE usuarios (
+  id        SERIAL PRIMARY KEY,
+  username  VARCHAR(50) NOT NULL UNIQUE,
+  password  VARCHAR(255) NOT NULL,
+  nombre    VARCHAR(100) NOT NULL,
+  rol       VARCHAR(20) NOT NULL CHECK (rol IN ('admin','tester','backend','security')),
+  creado_en TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE tickets (
+  id            VARCHAR(20) PRIMARY KEY,
+  titulo        VARCHAR(200) NOT NULL,
+  maquina       VARCHAR(50) NOT NULL,
+  aula          VARCHAR(50),
+  descripcion   TEXT NOT NULL,
+  prioridad     VARCHAR(10) DEFAULT 'media' CHECK (prioridad IN ('alta','media','baja')),
+  estado        VARCHAR(20) DEFAULT 'abierto' CHECK (estado IN ('abierto','en-progreso','resuelto')),
+  reportado_por VARCHAR(100),
+  fecha         DATE NOT NULL,
+  creado_por    INT REFERENCES usuarios(id)
+);
+
+INSERT INTO usuarios (username, password, nombre, rol) VALUES
+('admin',   'admin123',  'Administrador', 'admin'),
+('juan',    'test123',   'Juan',          'tester'),
+('tobias',  'dev123',    'Tobias',        'backend'),
+('damian',  'sec123',    'Damian',        'security'),
+('reyshel', 'datos123',  'Reyshel',       'tester'),
+('luz',     'docs123',   'Luz',           'tester'),
+('thiago',  'git123',    'Thiago',        'tester');
+
+INSERT INTO tickets (id, titulo, maquina, aula, descripcion, prioridad, estado, reportado_por, fecha) VALUES
+('TKT-001', 'Pantalla azul al iniciar',  'PC-07',       'Aula 3',     'BSOD al encender, error CRITICAL_PROCESS_DIED',        'alta',  'abierto',     'Prof. Martinez', '2025-03-19'),
+('TKT-002', 'No reconoce teclado USB',   'LAB-B-03',    'Lab B',      'El teclado no es detectado, se probaron 3 distintos',  'media', 'en-progreso', 'Alumno Garcia',  '2025-03-19'),
+('TKT-003', 'Sin salida de audio',       'PC-12',       'Aula 5',     'Los parlantes no funcionan, sin dispositivo de audio', 'baja',  'resuelto',    'Prof. Lopez',    '2025-03-18'),
+('TKT-004', 'BIOS no encuentra disco',   'PC-01',       'Direccion',  'No bootable device found al encender',                 'alta',  'abierto',     'Admin escuela',  '2025-03-19'),
+('TKT-005', 'Impresora fuera de linea',  'IMPRESORA-1', 'Secretaria', 'Aparece offline en todos los equipos de la red',       'media', 'abierto',     'Secretaria',     '2025-03-18');
+
