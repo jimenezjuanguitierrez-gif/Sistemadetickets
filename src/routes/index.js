@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import authRouter from './auth.routes.js';
 import { prisma } from '../config/prisma.js';
-import { authMiddleware } from '../middlewares/auth.middleware.js';
-import { isAdmin } from '../middlewares/role.middleware.js';
+import { authenticate, authorize } from '../middlewares/auth.js';
 
 const router = Router();
 
@@ -16,8 +15,8 @@ router.get('/health', (_req, res) => {
   });
 });
 
-// ─── Ruta protegida (requiere JWT) ──────────────────────────────────────────
-router.get('/users', authMiddleware, isAdmin, async (req, res) => {
+// ─── Ruta protegida (requiere JWT + rol ADMIN) ───────────────────────────────
+router.get('/users', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
     const users = await prisma.user.findMany();
 

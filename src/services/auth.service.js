@@ -8,7 +8,7 @@ export const register = async (data) => {
   const { nombre, email, password,rol } = data;
 
   if (!email || !password) {
-    throw new AppError('Email y password son obligatorios', 400);
+    throw AppError.badRequest('Email y password son obligatorios');
   }
 
   const existingUser = await prisma.user.findUnique({
@@ -16,7 +16,8 @@ export const register = async (data) => {
   });
 
   if (existingUser) {
-    throw new AppError('El usuario ya existe', 400);
+    throw AppError.conflict('El email ya está registrado');
+
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -26,7 +27,7 @@ export const register = async (data) => {
     nombre,
     email,
     password: hashedPassword,
-    rol: rol || 'user', // si no manda rol → user
+    rol: "USER", // fijo, nunca desde el body
   },
 });
 
@@ -39,7 +40,8 @@ export const login = async (data) => {
   const { email, password } = data;
 
   if (!email || !password) {
-    throw new AppError('Email y password son obligatorios', 400);
+    throw AppError.badRequest('Email y password son obligatorios');
+
   }
 
   // 1. Buscar usuario
@@ -48,14 +50,16 @@ export const login = async (data) => {
   });
 
   if (!user) {
-    throw new AppError('Credenciales inválidas', 401);
+    throw AppError.unauthorized('Credenciales incorrectas');
+
   }
 
   // 2. Comparar password
   const isMatch = await bcrypt.compare(password, user.password);
 
   if (!isMatch) {
-    throw new AppError('Credenciales inválidas', 401);
+    throw AppError.unauthorized('Credenciales incorrectas');
+
   }
 
   // 3. Generar JWT
