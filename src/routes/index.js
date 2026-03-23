@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRouter from './auth.routes.js';
 import { prisma } from '../config/prisma.js';
 import { authenticate, authorize } from '../middlewares/auth.js';
+import ticketRouter from './ticket.routes.js';
 
 const router = Router();
 
@@ -38,6 +39,7 @@ router.get('/users', authenticate, authorize('ADMIN'), async (req, res) => {
 });
 
 // ─── Rutas públicas ──────────────────────────────────────────────────────────
+router.use('/tickets', ticketRouter);
 router.use('/auth', authRouter);
 
 console.log("authRouter:", authRouter);

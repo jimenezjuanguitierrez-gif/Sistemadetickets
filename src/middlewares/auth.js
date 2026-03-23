@@ -38,7 +38,7 @@ export const authorize = (...roles) => {
       return next(AppError.unauthorized('No autenticado'));
     }
 
-    if (!roles.includes(req.user.role)) {
+    if (!roles.includes(req.user.rol)) {
       return next(AppError.forbidden('Insufficient permissions'));
     }
 
