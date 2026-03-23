@@ -8,12 +8,9 @@ export const login = async (req, res) => {
       success: true,
       ...result, // incluye user + token
     });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+} catch (error) {
+  next(error); // ✅ delega al errorHandler global
+}
 };
 
 export const register = async (req, res) => {
@@ -24,10 +21,7 @@ export const register = async (req, res) => {
       success: true,
       data: user,
     });
-  } catch (error) {
-    res.status(error.statusCode || 500).json({
-      success: false,
-      message: error.message,
-    });
-  }
+} catch (error) {
+  next(error); // ✅ delega al errorHandler global
+}
 };

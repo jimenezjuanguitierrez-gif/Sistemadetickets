@@ -1,16 +1,30 @@
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../middlewares/AppError.js';
 
+const ESTADOS_VALIDOS = ['ABIERTO', 'EN_PROCESO', 'RESUELTO', 'CERRADO'];
+
 export const crearTicket = async (data, usuarioId) => {
+  const { titulo, descripcion, prioridad, computadoraId } = data;
+
+  if (!titulo || titulo.trim() === '') {
+    throw AppError.badRequest('El título es obligatorio');
+  }
+
+  if (!descripcion || descripcion.trim() === '') {
+    throw AppError.badRequest('La descripción es obligatoria');
+  }
+
   const ticket = await prisma.ticket.create({
     data: {
-      titulo: data.titulo,
-      descripcion: data.descripcion,
-      prioridad: data.prioridad ?? 'MEDIA',
+      titulo: titulo.trim(),
+      descripcion: descripcion.trim(),
+      prioridad: prioridad ?? 'MEDIA',
       creadoPorId: usuarioId,
-      computadoraId: data.computadoraId ?? null,
+      computadoraId: computadoraId ?? null,
     },
-    include: { creadoPor: { select: { id: true, nombre: true, email: true } } }
+    include: {
+      creadoPor: { select: { id: true, nombre: true, email: true } },
+    },
   });
 
   await prisma.historial.create({
@@ -19,7 +33,7 @@ export const crearTicket = async (data, usuarioId) => {
       descripcion: `Ticket creado por el usuario ${usuarioId}`,
       ticketId: ticket.id,
       usuarioId,
-    }
+    },
   });
 
   return ticket;
@@ -33,7 +47,7 @@ export const obtenerMisTickets = async (usuarioId) => {
       creadoPor: { select: { id: true, nombre: true, email: true } },
       asignadoA: { select: { id: true, nombre: true, email: true } },
     },
-    orderBy: { fechaCreacion: 'desc' }
+    orderBy: { fechaCreacion: 'desc' },
   });
 };
 
@@ -44,11 +58,21 @@ export const obtenerTodosLosTickets = async () => {
       creadoPor: { select: { id: true, nombre: true, email: true } },
       asignadoA: { select: { id: true, nombre: true, email: true } },
     },
-    orderBy: { fechaCreacion: 'desc' }
+    orderBy: { fechaCreacion: 'desc' },
   });
 };
 
 export const cambiarEstado = async (ticketId, nuevoEstado, usuarioId) => {
+  if (!nuevoEstado) {
+    throw AppError.badRequest('El estado es obligatorio');
+  }
+
+  if (!ESTADOS_VALIDOS.includes(nuevoEstado)) {
+    throw AppError.badRequest(
+      `Estado inválido. Los valores permitidos son: ${ESTADOS_VALIDOS.join(', ')}`
+    );
+  }
+
   const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
 
   if (!ticket) throw AppError.notFound('Ticket no encontrado');
@@ -64,7 +88,7 @@ export const cambiarEstado = async (ticketId, nuevoEstado, usuarioId) => {
       descripcion: `Estado cambiado de ${ticket.estado} a ${nuevoEstado}`,
       ticketId,
       usuarioId,
-    }
+    },
   });
 
   return ticketActualizado;
@@ -81,7 +105,7 @@ export const eliminarTicket = async (ticketId, usuarioId) => {
       descripcion: `Ticket eliminado por el usuario ${usuarioId}`,
       ticketId,
       usuarioId,
-    }
+    },
   });
 
   await prisma.ticket.delete({ where: { id: ticketId } });

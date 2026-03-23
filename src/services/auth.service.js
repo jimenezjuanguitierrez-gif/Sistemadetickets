@@ -5,7 +5,11 @@ import { AppError } from '../middlewares/AppError.js';
 import { env } from '../config/env.js';
 
 export const register = async (data) => {
-  const { nombre, email, password,rol } = data;
+  const { nombre, email, password } = data;
+
+  if (!nombre || nombre.trim() === '') {
+    throw AppError.badRequest('El nombre es obligatorio');
+  }
 
   if (!email || !password) {
     throw AppError.badRequest('Email y password son obligatorios');
@@ -17,19 +21,18 @@ export const register = async (data) => {
 
   if (existingUser) {
     throw AppError.conflict('El email ya está registrado');
-
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.create({
-  data: {
-    nombre,
-    email,
-    password: hashedPassword,
-    rol: "USER", // fijo, nunca desde el body
-  },
-});
+    data: {
+      nombre: nombre.trim(),
+      email,
+      password: hashedPassword,
+      rol: 'USER', // fijo, nunca desde el body
+    },
+  });
 
   const { password: _, ...userWithoutPassword } = user;
 
@@ -41,28 +44,22 @@ export const login = async (data) => {
 
   if (!email || !password) {
     throw AppError.badRequest('Email y password son obligatorios');
-
   }
 
-  // 1. Buscar usuario
   const user = await prisma.user.findUnique({
     where: { email },
   });
 
   if (!user) {
     throw AppError.unauthorized('Credenciales incorrectas');
-
   }
 
-  // 2. Comparar password
   const isMatch = await bcrypt.compare(password, user.password);
 
   if (!isMatch) {
     throw AppError.unauthorized('Credenciales incorrectas');
-
   }
 
-  // 3. Generar JWT
   const token = jwt.sign(
     {
       id: user.id,
@@ -73,7 +70,6 @@ export const login = async (data) => {
     { expiresIn: env.JWT_EXPIRES_IN }
   );
 
-  // 4. Remover password
   const { password: _, ...userWithoutPassword } = user;
 
   return {
