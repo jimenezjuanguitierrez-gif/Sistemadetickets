@@ -12,6 +12,7 @@ import cors from 'cors';
 import router from './routes/index.js';
 import { notFound } from './middlewares/notFound.js';
 import { errorHandler } from './middlewares/errorHandler.js';
+import { apiLimiter } from './middlewares/rateLimiter.js';
 
 const app = express();
 
@@ -32,6 +33,8 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
+
+app.use('/api', apiLimiter);
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
