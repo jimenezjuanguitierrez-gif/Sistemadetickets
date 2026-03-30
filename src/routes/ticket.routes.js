@@ -5,10 +5,11 @@ import * as ticketController from '../controllers/ticket.controller.js';
 const router = Router();
 
 // Cualquier autenticado puede crear y ver sus propios tickets
-router.post('/',        authenticate, ticketController.crearTicket);
-router.get('/mios',     authenticate, ticketController.obtenerMisTickets);
+router.post('/',    authenticate, ticketController.crearTicket);
+router.get('/mios', authenticate, ticketController.obtenerMisTickets);
 
-// Tickets por computadora — cualquier usuario autenticado (necesario para los hubs)
+// Tickets por computadora — cualquier usuario autenticado
+// FIX: el param se llama :pcId para que el controller lo lea bien
 router.get('/computadora/:pcId', authenticate, ticketController.obtenerTicketsPorPC);
 
 // Todos los tickets — ADMIN y PROFESOR

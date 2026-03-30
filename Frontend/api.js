@@ -1,17 +1,9 @@
 // api.js — cliente HTTP para el backend PC Forum
-//
-// La URL base se detecta automáticamente:
-//   - Si el HTML se sirve desde Express (puerto 3000) → URL relativa /api
-//   - Si se abre directamente como archivo (file://) o desde otro puerto → apunta a localhost:3000/api
-//   - En producción (mismo dominio) → /api siempre funciona
 
 const API_URL = (() => {
-  // Si se está ejecutando en file:// (abrir HTML directamente sin servidor) o
-  // en un puerto distinto al 3000, apuntar explícitamente al backend.
   if (location.protocol === 'file:' || (location.hostname === 'localhost' && location.port !== '3000')) {
     return 'http://localhost:3000/api';
   }
-  // En producción o cuando Express sirve el frontend: URL relativa
   return '/api';
 })();
 
@@ -29,8 +21,6 @@ const API = {
   },
 
   // ─── HTTP helper ───────────────────────────────────────────────────────────
-  // Parsea el JSON de forma segura: si la respuesta está vacía (ej. DELETE 204)
-  // devuelve un objeto vacío en lugar de explotar con "Unexpected end of JSON input".
   async request(method, endpoint, body) {
     const headers = { 'Content-Type': 'application/json' };
     const token = this.getToken();
@@ -42,26 +32,22 @@ const API = {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    // Leer el texto crudo primero para evitar el crash en respuestas vacías
     const text = await res.text();
     let data = {};
     if (text) {
-      try {
-        data = JSON.parse(text);
-      } catch {
-        // Si el servidor devolvió algo que no es JSON válido, construir un error descriptivo
-        throw new Error(`Respuesta inesperada del servidor (${res.status})`);
-      }
+      try { data = JSON.parse(text); }
+      catch { throw new Error(`Respuesta inesperada del servidor (${res.status})`); }
     }
 
     if (!res.ok) throw new Error(data.message || `Error ${res.status}`);
     return data;
   },
 
-  get(ep)        { return this.request('GET', ep); },
-  post(ep, body) { return this.request('POST', ep, body); },
-  put(ep, body)  { return this.request('PUT', ep, body); },
-  del(ep)        { return this.request('DELETE', ep); },
+  get(ep)           { return this.request('GET', ep); },
+  post(ep, body)    { return this.request('POST', ep, body); },
+  put(ep, body)     { return this.request('PUT', ep, body); },
+  patch(ep, body)   { return this.request('PATCH', ep, body); },
+  del(ep)           { return this.request('DELETE', ep); },
 
   // ─── Auth ──────────────────────────────────────────────────────────────────
   async login(email, password) {
@@ -83,11 +69,15 @@ const API = {
   },
 
   // ─── Computadoras ──────────────────────────────────────────────────────────
-  async getPCs()          { return (await this.get('/computadoras')).data; },
-  async getPC(id)         { return (await this.get(`/computadoras/${id}`)).data; },
-  async addPC(data)       { return (await this.post('/computadoras', data)).data; },
-  async updatePC(id, d)   { return (await this.put(`/computadoras/${id}`, d)).data; },
-  async deletePC(id)      { return this.del(`/computadoras/${id}`); },
+  async getPCs()                          { return (await this.get('/computadoras')).data; },
+  async getPC(id)                         { return (await this.get(`/computadoras/${id}`)).data; },
+  async addPC(data)                       { return (await this.post('/computadoras', data)).data; },
+  async updatePC(id, d)                   { return (await this.put(`/computadoras/${id}`, d)).data; },
+  async deletePC(id)                      { return this.del(`/computadoras/${id}`); },
+  // Editar descripción del daño (accesible por todos los roles)
+  async updateDescripcionDanio(id, desc)  {
+    return (await this.patch(`/computadoras/${id}/descripcion-danio`, { descripcionDanio: desc })).data;
+  },
 
   // ─── Tickets ───────────────────────────────────────────────────────────────
   async getTicketsByPC(pcId)  { return (await this.get(`/tickets/computadora/${pcId}`)).data; },

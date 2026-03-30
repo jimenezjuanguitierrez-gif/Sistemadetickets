@@ -28,6 +28,18 @@ export const actualizarComputadora = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
+// PATCH /computadoras/:id/descripcion-danio
+// Accesible por PROFESOR, ADMIN y USER (alumnos también pueden editar)
+export const actualizarDescripcionDanio = async (req, res, next) => {
+  try {
+    const pc = await computadoraService.actualizarDescripcionDanio(
+      parseInt(req.params.id),
+      req.body.descripcionDanio
+    );
+    res.json({ success: true, data: pc });
+  } catch (e) { next(e); }
+};
+
 export const eliminarComputadora = async (req, res, next) => {
   try {
     const result = await computadoraService.eliminarComputadora(parseInt(req.params.id));

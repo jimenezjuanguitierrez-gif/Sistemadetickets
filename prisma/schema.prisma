@@ -42,21 +42,24 @@ model User {
 }
 
 model Computadora {
-  id          Int      @id @default(autoincrement())
-  codigo      String   @unique
-  nombre      String
-  lab         String   @default("otros")
-  ubicacion   String   @default("")
-  descripcion String   @default("")
-  marca       String   @default("")
-  modelo      String   @default("")
-  procesador  String   @default("")
-  ram         String   @default("")
-  disco       String   @default("")
-  os          String   @default("")
-  estado      String   @default("ok")
+  id               Int      @id @default(autoincrement())
+  codigo           String   @unique
+  nombre           String
+  lab              String   @default("otros")
+  ubicacion        String   @default("")
+  descripcion      String   @default("")
+  marca            String   @default("")
+  modelo           String   @default("")
+  procesador       String   @default("")
+  ram              String   @default("")
+  disco            String   @default("")
+  os               String   @default("")
+  estado           String   @default("ok")
+  // Descripción del daño/problema — obligatoria cuando estado es warn o danger.
+  // Visible para todos, editable por ADMIN, PROFESOR y USER.
+  descripcionDanio String   @default("")
 
-  tickets     Ticket[]
+  tickets          Ticket[]
 }
 
 model Ticket {

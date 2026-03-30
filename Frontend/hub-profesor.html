@@ -5,6 +5,95 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PC Forum — Hub Profesor</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ── Damage description block ── */
+    .danio-block {
+      background: var(--danger-bg);
+      border: 1px solid rgba(239,68,68,.25);
+      border-left: 3px solid var(--danger);
+      border-radius: var(--radius);
+      padding: .85rem 1rem;
+      margin-bottom: .25rem;
+    }
+    .danio-block.warn-block {
+      background: var(--warn-bg);
+      border-color: rgba(245,158,11,.25);
+      border-left-color: var(--warn);
+    }
+    .danio-label {
+      font-size: .68rem; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--text3); margin-bottom: .4rem;
+    }
+    .danio-text {
+      font-size: .83rem; color: var(--text2); line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .danio-edit-area {
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: .65rem .8rem;
+      color: var(--text); font-size: .83rem; font-family: var(--font);
+      resize: vertical; min-height: 72px; line-height: 1.5;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .danio-edit-area:focus {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-bg);
+    }
+    .danio-required-notice {
+      background: rgba(239,68,68,.08);
+      border: 1px dashed rgba(239,68,68,.4);
+      border-radius: var(--radius);
+      padding: .6rem .85rem;
+      font-size: .8rem; color: #fca5a5;
+      margin-bottom: .75rem;
+    }
+    /* Alerta de PCs dañadas en el inicio */
+    .alert-banner {
+      background: var(--danger-bg);
+      border: 1px solid rgba(239,68,68,.3);
+      border-left: 4px solid var(--danger);
+      border-radius: var(--radius);
+      padding: .85rem 1.1rem;
+      margin-bottom: 1.5rem;
+    }
+    .alert-banner.warn-banner {
+      background: var(--warn-bg);
+      border-color: rgba(245,158,11,.3);
+      border-left-color: var(--warn);
+    }
+    .alert-banner-title {
+      font-size: .78rem; font-weight: 700; letter-spacing: .05em;
+      text-transform: uppercase; color: var(--danger); margin-bottom: .5rem;
+    }
+    .alert-banner.warn-banner .alert-banner-title { color: var(--warn); }
+    .alert-pc-list { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .alert-pc-chip {
+      display: inline-flex; align-items: center; gap: .35rem;
+      background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25);
+      border-radius: 99px; padding: .25rem .65rem;
+      font-size: .75rem; font-weight: 600; color: #f87171;
+      cursor: pointer; transition: all .15s;
+      font-family: var(--mono);
+    }
+    .alert-pc-chip:hover { background: rgba(239,68,68,.2); }
+    .alert-pc-chip.warn-chip {
+      background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.25); color: #fbbf24;
+    }
+    .alert-pc-chip.warn-chip:hover { background: rgba(245,158,11,.2); }
+    /* View toggle */
+    .view-toggle {
+      display: flex; background: var(--surface);
+      border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+    }
+    .vt-btn {
+      padding: .35rem .85rem; font-size: .78rem; font-weight: 600;
+      color: var(--text2); background: transparent; border: none;
+      cursor: pointer; transition: all .15s; font-family: var(--font);
+    }
+    .vt-btn:hover  { background: var(--card); color: var(--text); }
+    .vt-btn.active { background: var(--accent-bg); color: var(--accent2); }
+    .vt-btn + .vt-btn { border-left: 1px solid var(--border); }
+  </style>
 </head>
 <body>
 
@@ -23,9 +112,11 @@
       Hola, <strong id="welcomeName"></strong> — Gestionás las computadoras del laboratorio: podés agregar, editar, cambiar estados y gestionar reportes.
     </div>
 
+    <!-- Alertas de PCs críticas/con problemas al inicio -->
+    <div id="alertBanners"></div>
+
     <div class="stats-row" id="statsRow"></div>
 
-    <!-- Barra de vista: PCs / Todos los tickets -->
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; flex-wrap:wrap; gap:.75rem;">
       <div class="page-header" style="margin-bottom:0;">
         <div class="page-title" id="viewTitle">Computadoras</div>
@@ -33,8 +124,8 @@
       </div>
       <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
         <div class="view-toggle">
-          <button class="vt-btn active" id="btnViewPCs"   onclick="switchView('pcs')">🖥️ PCs</button>
-          <button class="vt-btn"        id="btnViewFeed"  onclick="switchView('feed')">📋 Todos los tickets</button>
+          <button class="vt-btn active" id="btnViewPCs"  onclick="switchView('pcs')">🖥️ PCs</button>
+          <button class="vt-btn"       id="btnViewFeed" onclick="switchView('feed')">📋 Todos los tickets</button>
         </div>
         <button class="btn btn-primary btn-sm" id="btnNuevaPC" onclick="showPCForm()">+ Nueva PC</button>
       </div>
@@ -58,7 +149,7 @@
           </select>
         </div>
         <div class="form-group"><label>Estado</label>
-          <select id="f-estado">
+          <select id="f-estado" onchange="toggleDanioField()">
             <option value="ok">Operativa</option>
             <option value="warn">Con problemas</option>
             <option value="danger">Crítica</option>
@@ -70,6 +161,15 @@
         <div class="form-group"><label>RAM</label><input type="text" id="f-ram" placeholder="8 GB" /></div>
         <div class="form-group"><label>Almacenamiento</label><input type="text" id="f-disco" placeholder="256 GB SSD" /></div>
         <div class="form-group"><label>Sistema operativo</label><input type="text" id="f-os" placeholder="Windows 11 Pro" /></div>
+      </div>
+      <!-- Campo descripción del daño — aparece solo cuando estado != ok -->
+      <div id="danioFieldWrap" style="display:none; margin-top:.75rem;">
+        <div class="form-group">
+          <label>⚠️ Descripción del problema / daño <span style="color:var(--danger);">*</span></label>
+          <textarea id="f-descripcionDanio" rows="3"
+            placeholder="Describí qué le pasa a la computadora: síntomas, cuándo empezó, qué se intentó, etc."
+            style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.65rem .85rem;color:var(--text);font-size:.85rem;width:100%;resize:vertical;font-family:var(--font);"></textarea>
+        </div>
       </div>
       <div class="alert alert-error" id="pcFormErr"></div>
       <div style="display:flex; gap:.5rem; margin-top:.5rem;">
@@ -119,16 +219,39 @@
   <div class="panel-body">
     <div class="specs-grid" id="pSpecs"></div>
 
+    <!-- Descripción del daño — visible siempre, editable por todos -->
+    <div id="danioSection" style="display:none; margin-top:1rem;">
+      <div class="sec-head" style="margin-top:0;">⚠️ Descripción del problema</div>
+      <div id="danioViewMode">
+        <div id="danioDisplay" class="danio-block"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:.5rem;" onclick="startEditDanio()">✏️ Editar descripción</button>
+      </div>
+      <div id="danioEditMode" style="display:none;">
+        <textarea class="danio-edit-area" id="danioEditText" placeholder="Describí el problema o daño…"></textarea>
+        <div style="display:flex;gap:.4rem;margin-top:.4rem;">
+          <button class="btn btn-primary btn-sm" onclick="saveDanio()">Guardar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelEditDanio()">Cancelar</button>
+        </div>
+        <div class="inline-alert" id="danioAlert" style="margin-top:.4rem;"></div>
+      </div>
+    </div>
+
     <div class="sec-head">Estado de la PC</div>
     <div class="status-selector" id="statusSel"></div>
 
+    <!-- Aviso cuando se cambia a warn/danger sin descripción -->
+    <div id="danioRequiredNotice" class="danio-required-notice" style="display:none; margin-top:.75rem;">
+      ⚠️ Antes de marcar esta PC como dañada, completá la descripción del problema arriba.
+    </div>
+
     <div class="sec-head">Nuevo reporte</div>
     <div class="tipo-row">
-      <button class="tipo-opt active" id="t-PROBLEMA" onclick="setTipo('PROBLEMA')">🔴 Problema</button>
-      <button class="tipo-opt" id="t-INFO"    onclick="setTipo('INFO')">ℹ️ Info</button>
+      <button class="tipo-opt active" id="t-PROBLEMA"  onclick="setTipo('PROBLEMA')">🔴 Problema</button>
+      <button class="tipo-opt"        id="t-SOLUCION"  onclick="setTipo('SOLUCION')">✅ Solución</button>
+      <button class="tipo-opt"        id="t-INFO"      onclick="setTipo('INFO')">ℹ️ Info</button>
     </div>
     <div class="compose">
-      <textarea id="commentText" placeholder="Describí el problema o la situación con detalle…" maxlength="500"></textarea>
+      <textarea id="commentText" placeholder="Describí el problema, solución o información con detalle…" maxlength="500"></textarea>
       <div class="compose-foot">
         <span class="char-cnt"><span id="charCount">0</span> / 500</span>
         <button class="btn btn-primary btn-sm" id="submitBtn" onclick="submit()">Publicar</button>
@@ -162,11 +285,41 @@
     try {
       allPCs = await API.getPCs();
       document.getElementById('loadingMsg').style.display = 'none';
+      renderAlertBanners();
       renderStats();
       renderPCs();
     } catch (e) {
       document.getElementById('loadingMsg').textContent = '⚠️ Error: ' + e.message;
     }
+  }
+
+  // ─── Alert banners: PCs críticas / con problemas ──────────────────────────
+  function renderAlertBanners() {
+    const banners = document.getElementById('alertBanners');
+    const criticas = allPCs.filter(p => p.estado === 'danger');
+    const conProblemas = allPCs.filter(p => p.estado === 'warn');
+
+    let html = '';
+
+    if (criticas.length) {
+      html += `<div class="alert-banner">
+        <div class="alert-banner-title">🔴 ${criticas.length} computadora${criticas.length > 1 ? 's' : ''} en estado crítico</div>
+        <div class="alert-pc-list">
+          ${criticas.map(p => `<span class="alert-pc-chip" onclick="openPanel(${p.id})">${p.codigo} — ${p.nombre}</span>`).join('')}
+        </div>
+      </div>`;
+    }
+
+    if (conProblemas.length) {
+      html += `<div class="alert-banner warn-banner">
+        <div class="alert-banner-title">⚠️ ${conProblemas.length} computadora${conProblemas.length > 1 ? 's' : ''} con problemas</div>
+        <div class="alert-pc-list">
+          ${conProblemas.map(p => `<span class="alert-pc-chip warn-chip" onclick="openPanel(${p.id})">${p.codigo} — ${p.nombre}</span>`).join('')}
+        </div>
+      </div>`;
+    }
+
+    banners.innerHTML = html;
   }
 
   // ─── Vista toggle ─────────────────────────────────────────────────────────
@@ -260,6 +413,7 @@
         <div class="pc-num">${pc.codigo}</div>
         <div class="pc-name">${pc.nombre}</div>
         <div class="pc-spec">${[pc.marca, pc.modelo].filter(Boolean).join(' ') || '—'}<br>${pc.procesador || ''}</div>
+        ${pc.estado !== 'ok' && pc.descripcionDanio ? `<div class="pc-spec" style="color:#fca5a5;font-size:.72rem;margin-top:.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⚠️ ${pc.descripcionDanio}</div>` : ''}
         <div class="pc-footer">
           <span class="status-badge status-${pc.estado}">${API.estadoLabel(pc.estado)}</span>
           <span class="pc-comment-count">${cnt} ticket${cnt !== 1 ? 's' : ''}</span>
@@ -269,20 +423,28 @@
   }
 
   // ─── Formulario PC ────────────────────────────────────────────────────────
+  function toggleDanioField() {
+    const estado = document.getElementById('f-estado').value;
+    const wrap   = document.getElementById('danioFieldWrap');
+    wrap.style.display = (estado === 'ok') ? 'none' : 'block';
+  }
+
   function showPCForm(pc = null) {
     editPCId = pc ? pc.id : null;
     document.getElementById('pcFormTitle').textContent = pc ? `Editar ${pc.codigo}` : 'Nueva computadora';
-    document.getElementById('f-codigo').value     = pc?.codigo     ?? '';
-    document.getElementById('f-nombre').value     = pc?.nombre     ?? '';
-    document.getElementById('f-marca').value      = pc?.marca      ?? '';
-    document.getElementById('f-modelo').value     = pc?.modelo     ?? '';
-    document.getElementById('f-procesador').value = pc?.procesador ?? '';
-    document.getElementById('f-ram').value        = pc?.ram        ?? '';
-    document.getElementById('f-disco').value      = pc?.disco      ?? '';
-    document.getElementById('f-os').value         = pc?.os         ?? '';
-    document.getElementById('f-lab').value        = pc?.lab        ?? 'lab_a';
-    document.getElementById('f-estado').value     = pc?.estado     ?? 'ok';
+    document.getElementById('f-codigo').value          = pc?.codigo           ?? '';
+    document.getElementById('f-nombre').value          = pc?.nombre           ?? '';
+    document.getElementById('f-marca').value           = pc?.marca            ?? '';
+    document.getElementById('f-modelo').value          = pc?.modelo           ?? '';
+    document.getElementById('f-procesador').value      = pc?.procesador       ?? '';
+    document.getElementById('f-ram').value             = pc?.ram              ?? '';
+    document.getElementById('f-disco').value           = pc?.disco            ?? '';
+    document.getElementById('f-os').value              = pc?.os               ?? '';
+    document.getElementById('f-lab').value             = pc?.lab              ?? 'lab_a';
+    document.getElementById('f-estado').value          = pc?.estado           ?? 'ok';
+    document.getElementById('f-descripcionDanio').value = pc?.descripcionDanio ?? '';
     document.getElementById('pcFormErr').classList.remove('show');
+    toggleDanioField();
     document.getElementById('pcForm').classList.add('show');
     if (!pc) document.getElementById('f-codigo').focus();
   }
@@ -293,24 +455,34 @@
   }
 
   async function savePCForm() {
-    const data = {
-      codigo:     document.getElementById('f-codigo').value.trim(),
-      nombre:     document.getElementById('f-nombre').value.trim(),
-      marca:      document.getElementById('f-marca').value.trim(),
-      modelo:     document.getElementById('f-modelo').value.trim(),
-      procesador: document.getElementById('f-procesador').value.trim(),
-      ram:        document.getElementById('f-ram').value.trim(),
-      disco:      document.getElementById('f-disco').value.trim(),
-      os:         document.getElementById('f-os').value.trim(),
-      lab:        document.getElementById('f-lab').value,
-      estado:     document.getElementById('f-estado').value,
-    };
+    const estado = document.getElementById('f-estado').value;
+    const descripcionDanio = document.getElementById('f-descripcionDanio').value.trim();
     const err = document.getElementById('pcFormErr');
     err.classList.remove('show');
+
+    const data = {
+      codigo:           document.getElementById('f-codigo').value.trim(),
+      nombre:           document.getElementById('f-nombre').value.trim(),
+      marca:            document.getElementById('f-marca').value.trim(),
+      modelo:           document.getElementById('f-modelo').value.trim(),
+      procesador:       document.getElementById('f-procesador').value.trim(),
+      ram:              document.getElementById('f-ram').value.trim(),
+      disco:            document.getElementById('f-disco').value.trim(),
+      os:               document.getElementById('f-os').value.trim(),
+      lab:              document.getElementById('f-lab').value,
+      estado,
+      descripcionDanio,
+    };
+
     if (!data.codigo || !data.nombre) {
       err.textContent = 'Código y nombre son obligatorios.';
       err.classList.add('show'); return;
     }
+    if ((estado === 'warn' || estado === 'danger') && !descripcionDanio) {
+      err.textContent = 'Debés describir el problema o daño antes de guardar en este estado.';
+      err.classList.add('show'); return;
+    }
+
     const btn = document.getElementById('pcSaveBtn');
     btn.disabled = true; btn.textContent = 'Guardando…';
     try {
@@ -318,6 +490,7 @@
       else          await API.addPC(data);
       closePCForm();
       allPCs = await API.getPCs();
+      renderAlertBanners();
       renderStats();
       renderPCs();
     } catch (e) {
@@ -344,15 +517,66 @@
       ['Sistema op.',    pc.os || '—'],
     ].map(([k,v]) => `<div class="spec-row"><div class="spec-key">${k}</div><div class="spec-val">${v}</div></div>`).join('');
 
+    renderDanioSection(pc);
     renderStatusSel(pc.estado);
-    document.getElementById('commentText').value             = '';
-    document.getElementById('charCount').textContent         = '0';
-    document.getElementById('composeAlert').className        = 'inline-alert';
+    document.getElementById('danioRequiredNotice').style.display = 'none';
+    document.getElementById('commentText').value  = '';
+    document.getElementById('charCount').textContent = '0';
+    document.getElementById('composeAlert').className = 'inline-alert';
     setTipo('PROBLEMA');
 
     document.getElementById('overlay').classList.add('show');
     document.getElementById('panel').classList.add('show');
     await loadComments();
+  }
+
+  function renderDanioSection(pc) {
+    const section = document.getElementById('danioSection');
+    if (pc.estado === 'ok') {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = 'block';
+    const display = document.getElementById('danioDisplay');
+    display.className = `danio-block${pc.estado === 'warn' ? ' warn-block' : ''}`;
+
+    if (pc.descripcionDanio && pc.descripcionDanio.trim()) {
+      display.innerHTML = `<div class="danio-label">Problema / daño reportado</div>
+        <div class="danio-text">${pc.descripcionDanio}</div>`;
+    } else {
+      display.innerHTML = `<div class="danio-label">Problema / daño reportado</div>
+        <div class="danio-text" style="color:var(--text3);font-style:italic;">Sin descripción todavía. Usá el botón de editar para agregar detalles.</div>`;
+    }
+
+    document.getElementById('danioEditText').value = pc.descripcionDanio ?? '';
+    cancelEditDanio();
+  }
+
+  function startEditDanio()  {
+    document.getElementById('danioViewMode').style.display = 'none';
+    document.getElementById('danioEditMode').style.display = 'block';
+    document.getElementById('danioEditText').focus();
+  }
+  function cancelEditDanio() {
+    document.getElementById('danioViewMode').style.display = 'block';
+    document.getElementById('danioEditMode').style.display = 'none';
+    document.getElementById('danioAlert').className = 'inline-alert';
+  }
+
+  async function saveDanio() {
+    const text = document.getElementById('danioEditText').value.trim();
+    const al   = document.getElementById('danioAlert');
+    al.className = 'inline-alert';
+    try {
+      const updated = await API.updateDescripcionDanio(currentId, text);
+      const idx = allPCs.findIndex(p => p.id === currentId);
+      if (idx >= 0) allPCs[idx].descripcionDanio = text;
+      renderDanioSection(allPCs[idx]);
+      renderPCs();
+    } catch(e) {
+      al.textContent = 'Error: ' + e.message;
+      al.className = 'inline-alert err show';
+    }
   }
 
   function closePanel() {
@@ -378,6 +602,7 @@
       await API.deletePC(currentId);
       closePanel();
       allPCs = await API.getPCs();
+      renderAlertBanners();
       renderStats();
       renderPCs();
     } catch(e) {
@@ -395,13 +620,28 @@
   }
 
   async function changeEstado(estado) {
+    const pc = allPCs.find(p => p.id === currentId);
+
+    // Si va a warn/danger y no hay descripción, mostrar aviso y no cambiar
+    if ((estado === 'warn' || estado === 'danger') && !(pc?.descripcionDanio?.trim())) {
+      document.getElementById('danioRequiredNotice').style.display = 'block';
+      // Abrir automáticamente el editor de descripción
+      document.getElementById('danioSection').style.display = 'block';
+      startEditDanio();
+      return;
+    }
+
+    document.getElementById('danioRequiredNotice').style.display = 'none';
+
     try {
       await API.updatePC(currentId, { estado });
       const idx = allPCs.findIndex(p => p.id === currentId);
       if (idx >= 0) allPCs[idx].estado = estado;
       renderStatusSel(estado);
+      renderDanioSection(allPCs[idx]);
       renderPCs();
       renderStats();
+      renderAlertBanners();
     } catch (e) {
       alert('Error al cambiar estado: ' + e.message);
     }
@@ -410,9 +650,16 @@
   // ─── Tipo de ticket ───────────────────────────────────────────────────────
   function setTipo(t) {
     tipo = t;
-    ['PROBLEMA','INFO'].forEach(opt =>
+    ['PROBLEMA','SOLUCION','INFO'].forEach(opt =>
       document.getElementById('t-' + opt).classList.toggle('active', opt === t)
     );
+    // Cambiar placeholder según tipo
+    const placeholders = {
+      PROBLEMA: 'Describí el problema con detalle: síntomas, cuándo empezó, qué probaste…',
+      SOLUCION: 'Describí la solución aplicada o propuesta: pasos realizados, resultado…',
+      INFO:     'Agregá información relevante sobre esta PC o situación…',
+    };
+    document.getElementById('commentText').placeholder = placeholders[t] || '';
   }
 
   document.getElementById('commentText').addEventListener('input', function() {
@@ -444,6 +691,7 @@
       if (idx >= 0 && allPCs[idx]._count)
         allPCs[idx]._count.tickets = (allPCs[idx]._count.tickets ?? 0) + 1;
       renderPCs();
+      // FIX: recargar historial inmediatamente tras publicar
       await loadComments();
     } catch (e) {
       al.textContent = 'Error: ' + e.message;
@@ -499,31 +747,5 @@
 
   init();
 </script>
-
-<style>
-  /* Toggle de vista */
-  .view-toggle {
-    display: flex;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-  .vt-btn {
-    padding: .35rem .85rem;
-    font-size: .78rem;
-    font-weight: 600;
-    color: var(--text2);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transition: all .15s;
-    font-family: var(--font);
-  }
-  .vt-btn:hover  { background: var(--card); color: var(--text); }
-  .vt-btn.active { background: var(--accent-bg); color: var(--accent2); }
-  .vt-btn + .vt-btn { border-left: 1px solid var(--border); }
-</style>
-
 </body>
 </html>

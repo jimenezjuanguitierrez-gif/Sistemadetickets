@@ -20,7 +20,9 @@ export const obtenerMisTickets = async (req, res, next) => {
 
 export const obtenerTicketsPorPC = async (req, res, next) => {
   try {
-    const tickets = await ticketService.obtenerTicketsPorPC(parseInt(req.params.id));
+    // FIX: la ruta define :pcId, no :id
+    const id = parseInt(req.params.pcId ?? req.params.id);
+    const tickets = await ticketService.obtenerTicketsPorPC(id);
     res.json({ success: true, data: tickets });
   } catch (error) {
     next(error);

@@ -5,6 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PC Forum — Hub Alumno</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    .danio-block {
+      background: var(--danger-bg);
+      border: 1px solid rgba(239,68,68,.25);
+      border-left: 3px solid var(--danger);
+      border-radius: var(--radius);
+      padding: .85rem 1rem;
+      margin-bottom: .5rem;
+    }
+    .danio-block.warn-block {
+      background: var(--warn-bg);
+      border-color: rgba(245,158,11,.25);
+      border-left-color: var(--warn);
+    }
+    .danio-label {
+      font-size: .68rem; font-weight: 700; letter-spacing: .07em;
+      text-transform: uppercase; color: var(--text3); margin-bottom: .4rem;
+    }
+    .danio-text {
+      font-size: .83rem; color: var(--text2); line-height: 1.5;
+      white-space: pre-wrap;
+    }
+    .danio-edit-area {
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: .65rem .8rem;
+      color: var(--text); font-size: .83rem; font-family: var(--font);
+      resize: vertical; min-height: 72px; line-height: 1.5;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .danio-edit-area:focus {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-bg);
+    }
+  </style>
 </head>
 <body>
 
@@ -59,13 +93,31 @@
   <div class="panel-body">
     <div class="specs-grid" id="pSpecs"></div>
 
+    <!-- Descripción del daño — visible y editable por alumnos también -->
+    <div id="danioSection" style="display:none;">
+      <div class="sec-head" style="margin-top:1rem;">⚠️ Descripción del problema</div>
+      <div id="danioViewMode">
+        <div id="danioDisplay" class="danio-block"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:.4rem;" onclick="startEditDanio()">✏️ Agregar / editar descripción</button>
+      </div>
+      <div id="danioEditMode" style="display:none;">
+        <textarea class="danio-edit-area" id="danioEditText"
+          placeholder="Describí el problema, daño o lo que observaste sobre esta PC…"></textarea>
+        <div style="display:flex;gap:.4rem;margin-top:.4rem;">
+          <button class="btn btn-primary btn-sm" onclick="saveDanio()">Guardar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelEditDanio()">Cancelar</button>
+        </div>
+        <div class="inline-alert" id="danioAlert" style="margin-top:.4rem;"></div>
+      </div>
+    </div>
+
     <div class="sec-head">Problemas reportados</div>
     <div id="problemsArea"></div>
 
     <div class="sec-head">Tu aporte</div>
     <div class="tipo-row">
       <button class="tipo-opt active" id="t-SOLUCION" onclick="setTipo('SOLUCION')">✅ Solución</button>
-      <button class="tipo-opt" id="t-IDEA" onclick="setTipo('IDEA')">💡 Idea</button>
+      <button class="tipo-opt"        id="t-IDEA"     onclick="setTipo('IDEA')">💡 Idea</button>
     </div>
     <div class="compose">
       <textarea id="commentText" placeholder="Describí tu solución o idea…" maxlength="500"></textarea>
@@ -136,6 +188,7 @@
         <div class="pc-num">${pc.codigo}</div>
         <div class="pc-name">${pc.nombre}</div>
         <div class="pc-spec">${[pc.marca, pc.modelo].filter(Boolean).join(' ') || '—'}<br>${pc.procesador || ''}</div>
+        ${pc.estado !== 'ok' && pc.descripcionDanio ? `<div class="pc-spec" style="color:#fca5a5;font-size:.72rem;margin-top:.3rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⚠️ ${pc.descripcionDanio}</div>` : ''}
         <div class="pc-footer">
           <span class="status-badge status-${pc.estado}">${API.estadoLabel(pc.estado)}</span>
           <span class="pc-comment-count">${cnt} ticket${cnt !== 1 ? 's' : ''}</span>
@@ -163,6 +216,8 @@
         <div class="spec-val">${v}</div>
       </div>`).join('');
 
+    renderDanioSection(pc);
+
     document.getElementById('commentText').value = '';
     document.getElementById('charCount').textContent = '0';
     document.getElementById('composeAlert').className = 'inline-alert';
@@ -172,6 +227,55 @@
     document.getElementById('panel').classList.add('show');
 
     await loadComments();
+  }
+
+  function renderDanioSection(pc) {
+    const section = document.getElementById('danioSection');
+    if (pc.estado === 'ok') {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = 'block';
+    const display = document.getElementById('danioDisplay');
+    display.className = `danio-block${pc.estado === 'warn' ? ' warn-block' : ''}`;
+
+    if (pc.descripcionDanio && pc.descripcionDanio.trim()) {
+      display.innerHTML = `<div class="danio-label">Problema / daño reportado</div>
+        <div class="danio-text">${pc.descripcionDanio}</div>`;
+    } else {
+      display.innerHTML = `<div class="danio-label">Problema / daño reportado</div>
+        <div class="danio-text" style="color:var(--text3);font-style:italic;">Sin descripción todavía. Si sabés qué le pasa, podés agregarla.</div>`;
+    }
+
+    document.getElementById('danioEditText').value = pc.descripcionDanio ?? '';
+    cancelEditDanio();
+  }
+
+  function startEditDanio() {
+    document.getElementById('danioViewMode').style.display = 'none';
+    document.getElementById('danioEditMode').style.display = 'block';
+    document.getElementById('danioEditText').focus();
+  }
+  function cancelEditDanio() {
+    document.getElementById('danioViewMode').style.display = 'block';
+    document.getElementById('danioEditMode').style.display = 'none';
+    document.getElementById('danioAlert').className = 'inline-alert';
+  }
+
+  async function saveDanio() {
+    const text = document.getElementById('danioEditText').value.trim();
+    const al   = document.getElementById('danioAlert');
+    al.className = 'inline-alert';
+    try {
+      await API.updateDescripcionDanio(currentId, text);
+      const idx = allPCs.findIndex(p => p.id === currentId);
+      if (idx >= 0) allPCs[idx].descripcionDanio = text;
+      renderDanioSection(allPCs[idx]);
+      renderPCs();
+    } catch(e) {
+      al.textContent = 'Error: ' + e.message;
+      al.className = 'inline-alert err show';
+    }
   }
 
   function closePanel() {
@@ -217,6 +321,7 @@
       if (idx >= 0 && allPCs[idx]._count)
         allPCs[idx]._count.tickets = (allPCs[idx]._count.tickets ?? 0) + 1;
       renderPCs();
+      // FIX: recargar historial inmediatamente tras publicar
       await loadComments();
     } catch (e) {
       al.textContent = 'Error: ' + e.message;
