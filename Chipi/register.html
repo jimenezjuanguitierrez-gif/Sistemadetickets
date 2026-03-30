@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Registrarse — PC Forum</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-box">
+      <div class="auth-logo">🖥️ PC Forum</div>
+      <div class="auth-desc">Sistema de gestión de computadoras</div>
+
+      <div class="auth-title">Crear cuenta</div>
+      <div class="auth-sub">Completá los datos para registrarte</div>
+
+      <div class="alert alert-error"   id="err"></div>
+      <div class="alert alert-success" id="ok" style="display:none">¡Cuenta creada! Redirigiendo...</div>
+
+      <div class="form-group">
+        <label>Nombre completo</label>
+        <input type="text" id="nombre" placeholder="Juan Pérez" />
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="usuario" placeholder="juan@email.com" />
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="password" placeholder="Mínimo 4 caracteres" />
+      </div>
+      <div class="form-group">
+        <label>Confirmar contraseña</label>
+        <input type="password" id="password2" placeholder="Repetí la contraseña" />
+      </div>
+
+      <div class="form-group">
+        <label>Tipo de cuenta</label>
+        <div class="role-grid">
+          <div class="role-opt" id="opt-profesor" onclick="selRol('profesor')">
+            <div class="role-icon">📚</div>
+            <div class="role-name">Profesor</div>
+            <div class="role-hint">Reporta problemas</div>
+          </div>
+          <div class="role-opt" id="opt-alumno" onclick="selRol('alumno')">
+            <div class="role-icon">🎓</div>
+            <div class="role-name">Alumno</div>
+            <div class="role-hint">Propone soluciones</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-full" id="regBtn" onclick="register()">Crear cuenta</button>
+
+      <div class="auth-footer">¿Ya tenés cuenta? <a href="index.html">Iniciar sesión</a></div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script>
+    const s = DB.getSession()
+    if (s) DB.redirect(s.rol)
+
+    let rol = ''
+    function selRol(r) {
+      rol = r
+      document.getElementById('opt-profesor').classList.toggle('sel', r === 'profesor')
+      document.getElementById('opt-alumno').classList.toggle('sel', r === 'alumno')
+    }
+
+    async function register() {
+      const nombre   = document.getElementById('nombre').value.trim()
+      const usuario  = document.getElementById('usuario').value.trim()
+      const password = document.getElementById('password').value
+      const pass2    = document.getElementById('password2').value
+      const err  = document.getElementById('err')
+      const okEl = document.getElementById('ok')
+      const btn  = document.getElementById('regBtn')
+      err.classList.remove('show')
+      okEl.style.display = 'none'
+
+      const showErr = msg => { err.textContent = msg; err.classList.add('show') }
+
+      if (!nombre || !usuario || !password || !pass2) return showErr('Completá todos los campos.')
+      if (nombre.length < 3)     return showErr('El nombre es muy corto.')
+      if (password.length < 4)   return showErr('La contraseña debe tener al menos 4 caracteres.')
+      if (password !== pass2)    return showErr('Las contraseñas no coinciden.')
+      if (!rol)                  return showErr('Seleccioná el tipo de cuenta.')
+
+      btn.textContent = 'Creando cuenta...'
+      btn.disabled = true
+
+      try {
+        const res = await DB.register({ nombre, usuario, password, rol })
+        if (!res.ok) return showErr(res.msg)
+
+        okEl.style.display = 'block'
+        DB.setSession(res.user)
+        setTimeout(() => DB.redirect(res.user.rol), 1200)
+      } catch (e) {
+        showErr('No se pudo conectar al servidor.')
+      } finally {
+        btn.textContent = 'Crear cuenta'
+        btn.disabled = false
+      }
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') register() })
+  </script>
+</body>
+</html>

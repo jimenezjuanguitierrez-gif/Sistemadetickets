@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Iniciar sesión — PC Forum</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-box">
+      <div class="auth-logo">🖥️ PC Forum</div>
+      <div class="auth-desc">Sistema de gestión de computadoras</div>
+
+      <div class="auth-title">Iniciar sesión</div>
+      <div class="auth-sub">Ingresá tu email y contraseña para continuar</div>
+
+      <div class="alert alert-error" id="err"></div>
+
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="usuario" placeholder="tu@email.com" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="password" placeholder="••••••" autocomplete="current-password" />
+      </div>
+
+      <button class="btn btn-primary btn-full" id="loginBtn" onclick="login()">Entrar</button>
+
+      <div class="auth-footer">¿No tenés cuenta? <a href="register.html">Registrarse</a></div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script>
+    // Si ya hay sesión activa redirigir
+    const s = DB.getSession()
+    if (s) DB.redirect(s.rol)
+
+    async function login() {
+      const u   = document.getElementById('usuario').value.trim()
+      const p   = document.getElementById('password').value
+      const err = document.getElementById('err')
+      const btn = document.getElementById('loginBtn')
+      err.classList.remove('show')
+
+      if (!u || !p) {
+        err.textContent = 'Completá todos los campos.'
+        err.classList.add('show')
+        return
+      }
+
+      btn.textContent = 'Ingresando...'
+      btn.disabled = true
+
+      try {
+        const user = await DB.login(u, p)
+        if (!user) {
+          err.textContent = 'Usuario o contraseña incorrectos.'
+          err.classList.add('show')
+          return
+        }
+        DB.redirect(user.rol)
+      } catch (e) {
+        err.textContent = 'No se pudo conectar al servidor. Verificá que el servidor esté corriendo.'
+        err.classList.add('show')
+      } finally {
+        btn.textContent = 'Entrar'
+        btn.disabled = false
+      }
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') login() })
+  </script>
+</body>
+</html>

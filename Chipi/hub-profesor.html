@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hub Profesor — PC Forum</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <a href="hub-profesor.html" class="nav-brand">🖥️ PC Forum</a>
+  <div class="nav-spacer"></div>
+  <span class="nav-user-name" id="userName"></span>
+  <span class="nav-role role-profesor" id="roleBadge">Profesor</span>
+  <button class="btn btn-ghost btn-sm" onclick="DB.logout(); location.href='index.html'">Salir</button>
+</nav>
+
+<div class="page-content">
+  <div class="container section">
+
+    <div class="welcome-bar">
+      Hola, <strong id="welcomeName"></strong> — Hacé clic en una PC para ver sus detalles o reportar un problema.
+    </div>
+
+    <div class="stats-row" id="statsRow">
+      <div class="stat-box"><div class="stat-num">...</div><div class="stat-lbl">Cargando</div></div>
+    </div>
+
+    <div class="page-header">
+      <div class="page-title">Computadoras</div>
+      <div class="page-sub">// seleccioná una para ver detalles y reportar</div>
+    </div>
+
+    <div class="filter-bar">
+      <input type="text" class="search-input" id="search" placeholder="Buscar..." oninput="renderPCs()" />
+      <button class="chip active" onclick="setFilter('all',this)">Todas</button>
+      <button class="chip" onclick="setFilter('ok',this)">Operativas</button>
+      <button class="chip" onclick="setFilter('warn',this)">Con problemas</button>
+      <button class="chip" onclick="setFilter('danger',this)">Críticas</button>
+    </div>
+
+    <div class="pc-grid" id="pcGrid">
+      <div class="empty" style="grid-column:1/-1"><span>⏳</span>Cargando computadoras...</div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" onclick="closePanel()"></div>
+
+<div class="slide-panel" id="panel">
+  <div class="panel-head">
+    <div>
+      <div class="pc-num" id="pNum"></div>
+      <div class="pc-name" id="pName"></div>
+    </div>
+    <button class="panel-close" onclick="closePanel()">✕</button>
+  </div>
+  <div class="panel-body">
+    <div class="specs-grid" id="pSpecs"></div>
+
+    <div class="sec-head">Estado de la PC</div>
+    <div class="status-selector" id="statusSel"></div>
+
+    <div class="sec-head">Reportar problema</div>
+    <div class="tipo-row">
+      <button class="tipo-opt active" id="t-problema" onclick="setTipo('problema')">Problema</button>
+      <button class="tipo-opt" id="t-info" onclick="setTipo('info')">Info general</button>
+    </div>
+    <div class="compose">
+      <textarea id="commentText" placeholder="Describí el problema o la situación..." maxlength="500"></textarea>
+      <div class="compose-foot">
+        <span class="char-cnt"><span id="charCount">0</span>/500</span>
+        <button class="btn btn-primary btn-sm" onclick="submit()">Publicar</button>
+      </div>
+    </div>
+    <div class="inline-alert" id="composeAlert"></div>
+
+    <div class="sec-head">Historial (<span id="cCount">0</span>)</div>
+    <div id="commentsList"></div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script>
+  const session = DB.getSession()
+  if (!session || !['profesor','admin'].includes(session.rol)) location.href = 'index.html'
+
+  document.getElementById('userName').textContent = session.nombre
+  document.getElementById('welcomeName').textContent = session.nombre.split(' ')[0]
+  if (session.rol === 'admin') {
+    document.getElementById('roleBadge').textContent = 'Admin'
+    document.getElementById('roleBadge').className = 'nav-role role-admin'
+  }
+
+  let filter = 'all', currentId = null, tipo = 'problema'
+  let allPCs = []
+
+  async function init() {
+    allPCs = await DB.getPCs()
+    await renderStats()
+    renderPCs()
+  }
+
+  async function renderStats() {
+    const s = await DB.stats()
+    document.getElementById('statsRow').innerHTML = `
+      <div class="stat-box"><div class="stat-num">${s.total}</div><div class="stat-lbl">Total</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--ok)">${s.ok}</div><div class="stat-lbl">Operativas</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--warn)">${s.warn}</div><div class="stat-lbl">Con problemas</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--danger)">${s.danger}</div><div class="stat-lbl">Críticas</div></div>
+    `
+  }
+
+  function setFilter(f, btn) {
+    filter = f
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'))
+    btn.classList.add('active')
+    renderPCs()
+  }
+
+  function renderPCs() {
+    const q = document.getElementById('search').value.toLowerCase()
+    let pcs = allPCs
+    if (filter !== 'all') pcs = pcs.filter(p => p.estado === filter)
+    if (q) pcs = pcs.filter(p => (p.numero + p.nombre + p.marca).toLowerCase().includes(q))
+
+    const grid = document.getElementById('pcGrid')
+    if (!pcs.length) {
+      grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><span>🔍</span>No se encontraron PCs.</div>`
+      return
+    }
+
+    grid.innerHTML = pcs.map(pc => `
+      <div class="pc-card pc-${pc.estado}" onclick="openPanel(${pc.id})">
+        <div class="pc-num">${pc.numero}</div>
+        <div class="pc-name">${pc.nombre}</div>
+        <div class="pc-spec">${pc.marca} ${pc.modelo}</div>
+        <div class="pc-footer">
+          <span class="status-badge status-${pc.estado}">${DB.estadoLabel(pc.estado)}</span>
+        </div>
+      </div>
+    `).join('')
+  }
+
+  async function openPanel(id) {
+    currentId = id
+    const pc = allPCs.find(p => p.id == id)
+    if (!pc) return
+
+    document.getElementById('pNum').textContent = pc.numero
+    document.getElementById('pName').textContent = pc.nombre
+    document.getElementById('pSpecs').innerHTML = [
+      ['Laboratorio', DB.labLabel(pc.lab)],
+      ['Marca / Modelo', `${pc.marca} ${pc.modelo}`],
+      ['Estado', `<span class="status-badge status-${pc.estado}">${DB.estadoLabel(pc.estado)}</span>`],
+    ].map(([k,v]) => `<div class="spec-row"><div class="spec-key">${k}</div><div class="spec-val">${v}</div></div>`).join('')
+
+    renderStatusSel(pc.estado)
+
+    document.getElementById('commentText').value = ''
+    document.getElementById('charCount').textContent = '0'
+    document.getElementById('composeAlert').classList.remove('show')
+    setTipo('problema')
+    await renderComments()
+
+    document.getElementById('overlay').classList.add('show')
+    document.getElementById('panel').classList.add('show')
+  }
+
+  function renderStatusSel(current) {
+    const opts = [['ok','Operativa'],['warn','Con problemas'],['danger','Crítica']]
+    document.getElementById('statusSel').innerHTML = opts.map(([val,lbl]) =>
+      `<button class="status-opt ${current === val ? 'sel-'+val : ''}" onclick="changeEstado('${val}')">${lbl}</button>`
+    ).join('')
+  }
+
+  async function changeEstado(estado) {
+    await DB.updatePC(currentId, { estado })
+    // Actualizar localmente
+    const pc = allPCs.find(p => p.id == currentId)
+    if (pc) pc.estado = estado
+    renderStatusSel(estado)
+    renderPCs()
+    await renderStats()
+  }
+
+  function closePanel() {
+    document.getElementById('overlay').classList.remove('show')
+    document.getElementById('panel').classList.remove('show')
+    currentId = null
+  }
+
+  function setTipo(t) {
+    tipo = t
+    document.getElementById('t-problema').classList.toggle('active', t === 'problema')
+    document.getElementById('t-info').classList.toggle('active', t === 'info')
+  }
+
+  document.getElementById('commentText').addEventListener('input', function() {
+    document.getElementById('charCount').textContent = this.value.length
+  })
+
+  async function submit() {
+    const text = document.getElementById('commentText').value.trim()
+    const al = document.getElementById('composeAlert')
+    al.className = 'inline-alert'
+
+    if (!text || text.length < 5) {
+      al.textContent = 'Escribí al menos una descripción breve.'
+      al.className = 'inline-alert err show'
+      return
+    }
+
+    await DB.addComment({
+      pcId:   currentId,
+      userId: session.id,
+      autor:  session.nombre,
+      rol:    session.rol,
+      avatar: session.avatar,
+      texto:  text,
+      tipo,
+    })
+
+    document.getElementById('commentText').value = ''
+    document.getElementById('charCount').textContent = '0'
+    al.textContent = 'Comentario publicado.'
+    al.className = 'inline-alert ok show'
+    setTimeout(() => al.classList.remove('show'), 2500)
+    await renderComments()
+  }
+
+  async function renderComments() {
+    const comments = await DB.getComments(currentId)
+    document.getElementById('cCount').textContent = comments.length
+    const list = document.getElementById('commentsList')
+    if (!comments.length) {
+      list.innerHTML = `<div class="empty"><span>💬</span>Sin comentarios aún.</div>`
+      return
+    }
+
+    list.innerHTML = [...comments].reverse().map(c => {
+      const isProf = ['profesor','admin'].includes(c.rol)
+      const tagClass = { problema:'tag-prob', solucion:'tag-sol', idea:'tag-idea' }[c.tipo] || ''
+      const tagLabel = { problema:'Problema', solucion:'Solución', idea:'Idea', info:'Info' }[c.tipo] || c.tipo
+      return `<div class="comment">
+        <div class="comment-head">
+          <div class="avatar ${isProf ? 'av-prof' : 'av-alu'}">${c.avatar}</div>
+          <span class="comment-name">${c.autor}</span>
+          <span class="comment-tag ${tagClass}">${tagLabel}</span>
+          <span class="comment-time">${DB.formatDate(c.fecha)}</span>
+        </div>
+        <div class="comment-body">${c.texto}</div>
+      </div>`
+    }).join('')
+  }
+
+  init()
+</script>
+</body>
+</html>

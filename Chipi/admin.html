@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — PC Forum</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <a href="admin.html" class="nav-brand">🖥️ PC Forum</a>
+  <div class="nav-spacer"></div>
+  <span class="nav-user-name" id="userName"></span>
+  <span class="nav-role role-admin">Admin</span>
+  <button class="btn btn-ghost btn-sm" onclick="DB.logout(); location.href='index.html'">Salir</button>
+</nav>
+
+<div class="page-content">
+  <div class="admin-wrap">
+
+    <div class="admin-side">
+      <div class="side-label">General</div>
+      <button class="side-item active" onclick="show('dashboard',this)">📊 Dashboard</button>
+      <button class="side-item" onclick="show('actividad',this)">📋 Actividad</button>
+      <div class="side-label">Gestión</div>
+      <button class="side-item" onclick="show('pcs',this)">🖥️ Computadoras</button>
+      <button class="side-item" onclick="show('usuarios',this)">👥 Usuarios</button>
+      <div class="side-label">Accesos</div>
+      <a href="hub-profesor.html" class="side-item">📚 Hub Profesor</a>
+    </div>
+
+    <div class="admin-main">
+
+      <!-- DASHBOARD -->
+      <div class="view active" id="view-dashboard">
+        <div class="page-header">
+          <div class="page-title">Dashboard</div>
+          <div class="page-sub">// resumen del sistema</div>
+        </div>
+        <div class="stats-row" id="dashStats">
+          <div class="stat-box"><div class="stat-num">...</div><div class="stat-lbl">Cargando</div></div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+          <div class="tbl-wrap">
+            <div style="padding:0.85rem 1rem; font-size:0.85rem; font-weight:600; border-bottom:1px solid var(--border);">🔴 PCs críticas</div>
+            <div id="critList" style="padding:0.5rem 1rem;"></div>
+          </div>
+          <div class="tbl-wrap">
+            <div style="padding:0.85rem 1rem; font-size:0.85rem; font-weight:600; border-bottom:1px solid var(--border);">⚠️ Con advertencias</div>
+            <div id="warnList" style="padding:0.5rem 1rem;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVIDAD -->
+      <div class="view" id="view-actividad">
+        <div class="page-header">
+          <div class="page-title">Actividad reciente</div>
+          <div class="page-sub">// últimos comentarios publicados</div>
+        </div>
+        <div class="tbl-wrap" style="padding:0.5rem 1rem;" id="actFeed"></div>
+      </div>
+
+      <!-- PCS -->
+      <div class="view" id="view-pcs">
+        <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div class="page-title">Computadoras / Tickets</div>
+            <div class="page-sub">// gestión completa</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="showForm()">+ Agregar ticket</button>
+        </div>
+
+        <div class="form-box" id="pcForm">
+          <div class="form-box-head">
+            <span class="form-box-title" id="formTitle">Nuevo ticket</span>
+            <button class="form-close-btn" onclick="closeForm()">✕</button>
+          </div>
+          <div class="form-grid">
+            <div class="form-group"><label>Título / Número</label><input type="text" id="f-numero" placeholder="PC-009 o nombre del problema" /></div>
+            <div class="form-group"><label>Descripción</label><input type="text" id="f-nombre" placeholder="Descripción breve" /></div>
+            <div class="form-group"><label>Estado</label>
+              <select id="f-estado">
+                <option value="ok">Operativa</option>
+                <option value="warn">Con problemas</option>
+                <option value="danger">Crítica</option>
+              </select>
+            </div>
+          </div>
+          <div class="alert alert-error" id="formErr"></div>
+          <div style="display:flex;gap:0.5rem;margin-top:0.25rem;">
+            <button class="btn btn-primary btn-sm" onclick="saveForm()">Guardar</button>
+            <button class="btn btn-ghost btn-sm" onclick="closeForm()">Cancelar</button>
+          </div>
+        </div>
+
+        <div class="tbl-wrap">
+          <table class="tbl" id="pcsTable"></table>
+        </div>
+      </div>
+
+      <!-- USUARIOS -->
+      <div class="view" id="view-usuarios">
+        <div class="page-header">
+          <div class="page-title">Usuarios</div>
+          <div class="page-sub">// todos los registrados</div>
+        </div>
+        <div class="tbl-wrap">
+          <table class="tbl" id="usersTable"></table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script>
+  const session = DB.getSession()
+  if (!session || session.rol !== 'admin') location.href = 'index.html'
+  document.getElementById('userName').textContent = session.nombre
+
+  let allPCs = []
+
+  async function init() {
+    allPCs = await DB.getPCs()
+    await renderDash()
+  }
+
+  function show(view, btn) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'))
+    document.querySelectorAll('.side-item').forEach(b => b.classList.remove('active'))
+    document.getElementById('view-' + view).classList.add('active')
+    if (btn) btn.classList.add('active')
+    if (view === 'dashboard') renderDash()
+    if (view === 'actividad') renderActivity()
+    if (view === 'pcs')       renderPCs()
+    if (view === 'usuarios')  renderUsers()
+  }
+
+  async function renderDash() {
+    allPCs = await DB.getPCs()
+    const s = await DB.stats()
+    document.getElementById('dashStats').innerHTML = `
+      <div class="stat-box"><div class="stat-num">${s.total}</div><div class="stat-lbl">Total PCs</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--ok)">${s.ok}</div><div class="stat-lbl">Operativas</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--warn)">${s.warn}</div><div class="stat-lbl">Con problemas</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--danger)">${s.danger}</div><div class="stat-lbl">Críticas</div></div>
+    `
+
+    const row = (pc) => `<div style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--border);">
+      <div><div style="font-size:0.83rem;font-weight:600;">${pc.numero}</div><div style="font-size:0.76rem;color:var(--text2);">${pc.nombre}</div></div>
+      <span class="status-badge status-${pc.estado}">${DB.estadoLabel(pc.estado)}</span>
+    </div>`
+
+    const crit = allPCs.filter(p => p.estado === 'danger')
+    document.getElementById('critList').innerHTML = crit.length
+      ? crit.map(row).join('')
+      : `<p style="font-size:0.82rem;color:var(--text3);padding:0.5rem 0;">Ninguna. ✅</p>`
+
+    const warn = allPCs.filter(p => p.estado === 'warn')
+    document.getElementById('warnList').innerHTML = warn.length
+      ? warn.map(row).join('')
+      : `<p style="font-size:0.82rem;color:var(--text3);padding:0.5rem 0;">Ninguna.</p>`
+  }
+
+  async function renderActivity() {
+    const comments = await DB.getComments()
+    const sorted = [...comments].sort((a,b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 20)
+    const dotColor = { problema:'var(--danger)', solucion:'var(--ok)', idea:'var(--accent)', info:'var(--text3)' }
+    const feed = document.getElementById('actFeed')
+    if (!sorted.length) {
+      feed.innerHTML = `<div class="empty"><span>📋</span>Sin actividad aún.</div>`
+      return
+    }
+    feed.innerHTML = sorted.map(c => {
+      const pc = allPCs.find(p => p.id == c.pcId)
+      return `<div class="activity-item">
+        <div class="act-dot" style="background:${dotColor[c.tipo]||'var(--text3)'}"></div>
+        <div>
+          <div class="act-body"><strong>${c.autor}</strong> comentó en <strong>${pc ? pc.numero : 'Ticket #'+c.pcId}</strong></div>
+          <div class="act-body" style="color:var(--text3);">${c.texto.slice(0,100)}${c.texto.length>100?'…':''}</div>
+          <div class="act-time">${DB.formatDate(c.fecha)}</div>
+        </div>
+      </div>`
+    }).join('')
+  }
+
+  function renderPCs() {
+    document.getElementById('pcsTable').innerHTML = `
+      <thead><tr><th>Título</th><th>Descripción</th><th>Estado</th><th></th></tr></thead>
+      <tbody>${allPCs.map(pc => `<tr>
+        <td style="font-weight:600;font-size:0.85rem;">${pc.numero}</td>
+        <td style="font-size:0.83rem;color:var(--text2);">${pc.nombre}</td>
+        <td><span class="status-badge status-${pc.estado}">${DB.estadoLabel(pc.estado)}</span></td>
+        <td style="display:flex;gap:0.4rem;">
+          <button class="btn btn-danger btn-sm" onclick="delPC(${pc.id},'${pc.numero}')">Eliminar</button>
+        </td>
+      </tr>`).join('')}</tbody>`
+  }
+
+  function showForm() {
+    document.getElementById('formTitle').textContent = 'Nuevo ticket'
+    document.getElementById('f-numero').value = ''
+    document.getElementById('f-nombre').value = ''
+    document.getElementById('f-estado').value = 'ok'
+    document.getElementById('formErr').classList.remove('show')
+    document.getElementById('pcForm').classList.add('show')
+  }
+
+  function closeForm() { document.getElementById('pcForm').classList.remove('show') }
+
+  async function saveForm() {
+    const numero = document.getElementById('f-numero').value.trim()
+    const nombre = document.getElementById('f-nombre').value.trim()
+    const estado = document.getElementById('f-estado').value
+    const err = document.getElementById('formErr')
+    err.classList.remove('show')
+
+    if (!numero || !nombre) {
+      err.textContent = 'Completá al menos título y descripción.'
+      err.classList.add('show')
+      return
+    }
+
+    await DB.addPC({ numero, nombre, estado })
+    closeForm()
+    allPCs = await DB.getPCs()
+    renderPCs()
+    renderDash()
+  }
+
+  async function delPC(id, num) {
+    if (!confirm(`¿Eliminar "${num}"?`)) return
+    await DB.deletePC(id)
+    allPCs = await DB.getPCs()
+    renderPCs()
+    renderDash()
+  }
+
+  async function renderUsers() {
+    const users = await DB.getUsers()
+    document.getElementById('usersTable').innerHTML = `
+      <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th></tr></thead>
+      <tbody>${users.map(u => `<tr>
+        <td style="font-size:0.85rem;font-weight:500;">${u.nombre}</td>
+        <td style="font-family:'IBM Plex Mono',monospace;font-size:0.8rem;color:var(--text2);">${u.usuario}</td>
+        <td><span class="nav-role role-${u.rol}">${u.rol}</span></td>
+      </tr>`).join('')}</tbody>`
+  }
+
+  init()
+</script>
+</body>
+</html>
