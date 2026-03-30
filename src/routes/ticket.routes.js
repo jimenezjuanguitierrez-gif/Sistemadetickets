@@ -4,22 +4,18 @@ import * as ticketController from '../controllers/ticket.controller.js';
 
 const router = Router();
 
-// Crear ticket — cualquier usuario autenticado
-router.post('/', authenticate, ticketController.crearTicket);
+// Cualquier autenticado puede crear y ver sus propios tickets
+router.post('/',        authenticate, ticketController.crearTicket);
+router.get('/mios',     authenticate, ticketController.obtenerMisTickets);
 
-// Mis tickets
-router.get('/mios', authenticate, ticketController.obtenerMisTickets);
-
-// Tickets por computadora — cualquier usuario autenticado
-router.get('/computadora/:id', authenticate, ticketController.obtenerTicketsPorPC);
+// Tickets por computadora — cualquier usuario autenticado (necesario para los hubs)
+router.get('/computadora/:pcId', authenticate, ticketController.obtenerTicketsPorPC);
 
 // Todos los tickets — ADMIN y PROFESOR
 router.get('/', authenticate, authorize('ADMIN', 'PROFESOR'), ticketController.obtenerTodosLosTickets);
 
-// Cambiar estado — ADMIN y PROFESOR
+// Cambiar estado y eliminar — ADMIN y PROFESOR
 router.put('/:id/estado', authenticate, authorize('ADMIN', 'PROFESOR'), ticketController.cambiarEstado);
-
-// Eliminar ticket — ADMIN y PROFESOR
-router.delete('/:id', authenticate, authorize('ADMIN', 'PROFESOR'), ticketController.eliminarTicket);
+router.delete('/:id',     authenticate, authorize('ADMIN', 'PROFESOR'), ticketController.eliminarTicket);
 
 export default router;

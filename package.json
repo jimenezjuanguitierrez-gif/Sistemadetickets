@@ -2,10 +2,10 @@
   "name": "helpdesk-api",
   "version": "1.0.0",
   "type": "module",
-  "description": "Technical Help Desk API for educational institution",
+  "description": "PC Forum — Sistema de gestión de computadoras para laboratorios",
   "main": "src/server.js",
   "scripts": {
-    "dev": "nodemon src/server.js",
+    "dev": "node scripts/dev.js",
     "start": "node src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

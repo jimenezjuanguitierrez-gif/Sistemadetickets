@@ -17,7 +17,7 @@ export const eliminarUsuario = async (req, res, next) => {
   try {
     const resultado = await userService.eliminarUsuario(
       parseInt(req.params.id),
-      req.user  // requestingUser (id + rol)
+      req.user.id
     );
     res.json({ success: true, data: resultado });
   } catch (error) {

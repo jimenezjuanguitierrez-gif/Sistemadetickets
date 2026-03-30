@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { prisma } from '../config/prisma.js';
 import { AppError } from '../middlewares/AppError.js';
 
@@ -5,45 +6,54 @@ export const obtenerTodosLosUsuarios = async () => {
   const users = await prisma.user.findMany({
     orderBy: { fechaCreacion: 'desc' },
   });
+  // Nunca exponer el password
   return users.map(({ password, ...user }) => user);
 };
 
 /**
- * Soft-delete: desactiva el usuario sin borrar su historial.
- * Reglas:
- *   - Nadie puede darse de baja a sí mismo.
- *   - ADMIN puede dar de baja a USER y PROFESOR (no a otros ADMIN).
- *   - PROFESOR solo puede dar de baja a USER (alumnos).
+ * Anonimiza un usuario en lugar de eliminarlo físicamente.
+ *
+ * POR QUÉ ANONIMIZAR Y NO BORRAR:
+ * Los tickets e historial tienen FK hacia User. Si borramos el registro,
+ * perderíamos todo el rastro de actividad. La anonimización preserva
+ * integridad referencial y cumplimiento de auditoría, pero elimina todos
+ * los datos personales identificables (nombre, email, contraseña).
+ *
+ * El email se reemplaza por uno interno único → libera el email real
+ * para que alguien más pueda registrarse con él.
  */
-export const eliminarUsuario = async (targetId, requestingUser) => {
-  const target = await prisma.user.findUnique({ where: { id: targetId } });
-  if (!target) throw AppError.notFound('Usuario no encontrado');
+export const eliminarUsuario = async (idObjetivo, idAdmin) => {
+  const user = await prisma.user.findUnique({ where: { id: idObjetivo } });
 
-  // No puede borrarse a sí mismo
-  if (requestingUser.id === targetId) {
-    throw AppError.badRequest('No podés darte de baja a vos mismo');
-  }
+  if (!user) throw AppError.notFound('Usuario no encontrado');
 
-  // ADMIN no puede dar de baja a otro ADMIN
-  if (target.rol === 'ADMIN') {
+  // No se puede dar de baja a otro admin
+  if (user.rol === 'ADMIN') {
     throw AppError.forbidden('No se puede dar de baja a un administrador');
   }
 
-  // PROFESOR solo puede dar de baja a alumnos (USER)
-  if (requestingUser.rol === 'PROFESOR' && target.rol !== 'USER') {
-    throw AppError.forbidden('Los profesores solo pueden dar de baja a alumnos');
+  // No se puede dar de baja a uno mismo (el admin que hace la petición)
+  if (idObjetivo === idAdmin) {
+    throw AppError.forbidden('No podés darte de baja a vos mismo');
   }
 
-  // Si ya está inactivo, informar
-  if (!target.activo) {
-    throw AppError.badRequest('El usuario ya está dado de baja');
+  // Si ya fue anonimizado, no hacer nada
+  if (user.email.startsWith('eliminado_') && user.email.endsWith('@sistema.local')) {
+    throw AppError.conflict('El usuario ya fue dado de baja');
   }
 
-  const updated = await prisma.user.update({
-    where: { id: targetId },
-    data:  { activo: false },
+  // Password aleatorio para que nadie pueda acceder con la cuenta fantasma
+  const passwordAleatorio = await bcrypt.hash(`${Math.random()}-${Date.now()}`, 10);
+
+  await prisma.user.update({
+    where: { id: idObjetivo },
+    data: {
+      nombre:   'Usuario Eliminado',
+      email:    `eliminado_${idObjetivo}_${Date.now()}@sistema.local`,
+      password: passwordAleatorio,
+      activo:   false,
+    },
   });
 
-  const { password, ...user } = updated;
-  return { message: `${target.nombre} fue dado de baja correctamente`, user };
+  return { message: 'Usuario dado de baja y datos personales eliminados' };
 };

@@ -9,7 +9,7 @@
 <body>
 
 <nav>
-  <a href="admin.html" class="nav-brand">🖥️ PC Forum</a>
+  <a href="/admin.html" class="nav-brand">🖥️ PC Forum</a>
   <div class="nav-spacer"></div>
   <span class="nav-user-name" id="userName"></span>
   <span class="nav-role role-admin">Admin</span>
@@ -29,9 +29,7 @@
       <button class="side-item" onclick="show('usuarios',this)">👥 Usuarios</button>
       <button class="side-item" onclick="show('tickets',this)">🎫 Todos los tickets</button>
       <div class="side-label">Vistas</div>
-      <!-- Abre en nueva pestaña para no perder la sesión de admin -->
-      <a href="hub-profesor.html" target="_blank" class="side-item">📚 Vista Profesor</a>
-      <a href="hub-alumno.html" target="_blank" class="side-item">🎓 Vista Alumno</a>
+      <a href="/hub-profesor.html" class="side-item">📚 Vista Profesor</a>
     </div>
 
     <!-- MAIN -->
@@ -46,12 +44,12 @@
         <div class="stats-row" id="dashStats"></div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
           <div class="tbl-wrap">
-            <div style="padding:0.85rem 1rem; font-size:0.78rem; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid var(--border);">🔴 PCs críticas</div>
-            <div id="critList" style="padding:0.25rem 0;"></div>
+            <div style="padding:.85rem 1rem; font-size:.78rem; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid var(--border);">🔴 PCs críticas</div>
+            <div id="critList" style="padding:.25rem 0;"></div>
           </div>
           <div class="tbl-wrap">
-            <div style="padding:0.85rem 1rem; font-size:0.78rem; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid var(--border);">⚠️ Con advertencias</div>
-            <div id="warnList" style="padding:0.25rem 0;"></div>
+            <div style="padding:.85rem 1rem; font-size:.78rem; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:.06em; border-bottom:1px solid var(--border);">⚠️ Con advertencias</div>
+            <div id="warnList" style="padding:.25rem 0;"></div>
           </div>
         </div>
       </div>
@@ -62,7 +60,7 @@
           <div class="page-title">Actividad reciente</div>
           <div class="page-sub">// últimos tickets publicados en el sistema</div>
         </div>
-        <div class="tbl-wrap" style="padding:0 0.5rem;" id="actFeed"></div>
+        <div class="tbl-wrap" style="padding:0 .5rem;" id="actFeed"></div>
       </div>
 
       <!-- PCS -->
@@ -106,7 +104,7 @@
             <div class="form-group"><label>Sistema operativo</label><input type="text" id="f-os" placeholder="Windows 11 Pro" /></div>
           </div>
           <div class="alert alert-error" id="formErr"></div>
-          <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+          <div style="display:flex;gap:.5rem;margin-top:.5rem;">
             <button class="btn btn-primary btn-sm" id="saveBtn" onclick="saveForm()">Guardar</button>
             <button class="btn btn-ghost btn-sm" onclick="closeForm()">Cancelar</button>
           </div>
@@ -121,14 +119,7 @@
       <div class="view" id="view-usuarios">
         <div class="page-header">
           <div class="page-title">Usuarios</div>
-          <div class="page-sub">// gestión de todos los usuarios registrados</div>
-        </div>
-        <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
-          <button class="chip active" onclick="setUserFilter('all',this)">Todos</button>
-          <button class="chip" onclick="setUserFilter('ADMIN',this)">Admins</button>
-          <button class="chip" onclick="setUserFilter('PROFESOR',this)">Profesores</button>
-          <button class="chip" onclick="setUserFilter('USER',this)">Alumnos</button>
-          <button class="chip" onclick="setUserFilter('inactive',this)">Dados de baja</button>
+          <div class="page-sub">// todos los registrados · dar de baja elimina sus datos personales</div>
         </div>
         <div class="tbl-wrap">
           <table class="tbl" id="usersTable"></table>
@@ -154,7 +145,7 @@
   if (!session || session.rol !== 'ADMIN') API.logout();
   document.getElementById('userName').textContent = session.nombre;
 
-  let allPCs = [], allTickets = [], editId = null, userFilter = 'all';
+  let allPCs = [], allTickets = [], editId = null;
 
   async function loadData() {
     try { allPCs     = await API.getPCs(); }       catch(e) { allPCs = []; }
@@ -174,7 +165,7 @@
     if (view === 'tickets')   renderAllTickets();
   }
 
-  // ─── DASHBOARD ────────────────────────────────────────────
+  // ─── DASHBOARD ─────────────────────────────────────────────────────────────
   function renderDash() {
     const s = API.stats(allPCs);
     document.getElementById('dashStats').innerHTML = `
@@ -184,10 +175,10 @@
       <div class="stat-box"><div class="stat-num" style="color:var(--danger)">${s.danger}</div><div class="stat-lbl">Críticas</div></div>
     `;
     const pcRow = pc => `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 1rem;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--border);">
         <div>
-          <div style="font-size:0.82rem;font-weight:600;font-family:var(--mono);">${pc.codigo}</div>
-          <div style="font-size:0.74rem;color:var(--text3);">${pc.nombre}</div>
+          <div style="font-size:.82rem;font-weight:600;font-family:var(--mono);">${pc.codigo}</div>
+          <div style="font-size:.74rem;color:var(--text3);">${pc.nombre}</div>
         </div>
         <span class="status-badge status-${pc.estado}">${API.estadoLabel(pc.estado)}</span>
       </div>`;
@@ -201,10 +192,10 @@
       : `<div class="empty" style="padding:1.5rem;"><span style="font-size:1.2rem;">✅</span>Ninguna</div>`;
   }
 
-  // ─── ACTIVIDAD ────────────────────────────────────────────
+  // ─── ACTIVIDAD ─────────────────────────────────────────────────────────────
   function renderActivity() {
     const feed   = document.getElementById('actFeed');
-    const sorted = [...allTickets].sort((a,b) => new Date(b.fechaCreacion)-new Date(a.fechaCreacion)).slice(0,25);
+    const sorted = [...allTickets].sort((a,b) => new Date(b.fechaCreacion)-new Date(a.fechaCreacion)).slice(0,20);
     const dotColor = { PROBLEMA:'var(--danger)', SOLUCION:'var(--ok)', IDEA:'#a78bfa', INFO:'var(--text3)' };
     if (!sorted.length) { feed.innerHTML = `<div class="empty"><span>📋</span>Sin actividad aún.</div>`; return; }
     feed.innerHTML = sorted.map(t => `
@@ -213,7 +204,7 @@
         <div>
           <div class="act-body">
             <strong>${t.creadoPor?.nombre ?? 'Usuario'}</strong> publicó en
-            <strong style="font-family:var(--mono);font-size:0.78rem;">${t.computadora?.codigo ?? 'Sin PC'}</strong>
+            <strong style="font-family:var(--mono);font-size:.78rem;">${t.computadora?.codigo ?? 'Sin PC'}</strong>
             <span class="comment-tag ${API.tipoClass(t.titulo)}" style="margin-left:.25rem;">${API.tipoLabel(t.titulo)}</span>
           </div>
           <div class="act-body" style="color:var(--text3);margin-top:.2rem;">${t.descripcion.slice(0,120)}${t.descripcion.length>120?'…':''}</div>
@@ -222,24 +213,20 @@
       </div>`).join('');
   }
 
-  // ─── PCS ──────────────────────────────────────────────────
+  // ─── PCS ───────────────────────────────────────────────────────────────────
   function renderPCs() {
     document.getElementById('pcsTable').innerHTML = `
-      <thead><tr>
-        <th>Código</th><th>Nombre</th><th>Lab</th><th>Marca / Modelo</th>
-        <th>Estado</th><th>Tickets</th><th></th>
-      </tr></thead>
+      <thead><tr><th>Código</th><th>Nombre</th><th>Marca / Modelo</th><th>Estado</th><th>Tickets</th><th></th></tr></thead>
       <tbody>${allPCs.map(pc => {
         const cnt = pc._count?.tickets ?? 0;
         return `<tr>
-          <td><span style="font-family:var(--mono);font-size:0.8rem;">${pc.codigo}</span></td>
+          <td><span style="font-family:var(--mono);font-size:.8rem;">${pc.codigo}</span></td>
           <td>${pc.nombre}</td>
-          <td style="color:var(--text3);font-size:0.78rem;">${API.labLabel(pc.lab)}</td>
           <td style="color:var(--text3);">${[pc.marca, pc.modelo].filter(Boolean).join(' ') || '—'}</td>
           <td><span class="status-badge status-${pc.estado}">${API.estadoLabel(pc.estado)}</span></td>
-          <td><span style="font-family:var(--mono);font-size:0.78rem;">${cnt}</span></td>
+          <td><span style="font-family:var(--mono);font-size:.78rem;">${cnt}</span></td>
           <td>
-            <div style="display:flex;gap:0.35rem;">
+            <div style="display:flex;gap:.35rem;">
               <button class="btn btn-ghost btn-sm" onclick="editPC(${pc.id})">Editar</button>
               <button class="btn btn-danger btn-sm" onclick="delPC(${pc.id},'${pc.codigo}')">Eliminar</button>
             </div>
@@ -254,17 +241,14 @@
     ['codigo','nombre','marca','modelo','procesador','ram','disco','os'].forEach(f =>
       document.getElementById('f-'+f).value = ''
     );
-    document.getElementById('f-lab').value = 'lab_a';
+    document.getElementById('f-lab').value   = 'lab_a';
     document.getElementById('f-estado').value = 'ok';
     document.getElementById('formErr').classList.remove('show');
     document.getElementById('pcForm').classList.add('show');
     document.getElementById('f-codigo').focus();
   }
 
-  function closeForm() {
-    document.getElementById('pcForm').classList.remove('show');
-    editId = null;
-  }
+  function closeForm() { document.getElementById('pcForm').classList.remove('show'); editId = null; }
 
   function editPC(id) {
     const pc = allPCs.find(p => p.id === id);
@@ -330,41 +314,30 @@
     } catch (e) { alert('Error: ' + e.message); }
   }
 
-  // ─── USUARIOS ─────────────────────────────────────────────
-  function setUserFilter(f, btn) {
-    userFilter = f;
-    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-    btn.classList.add('active');
-    renderUsers();
-  }
-
+  // ─── USUARIOS ──────────────────────────────────────────────────────────────
   async function renderUsers() {
     const tbl = document.getElementById('usersTable');
     tbl.innerHTML = `<thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Registro</th><th></th></tr></thead>
       <tbody><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:1.5rem;">Cargando…</td></tr></tbody>`;
     try {
-      let users = await API.getUsers();
-
-      // Filtrar según selector
-      if (userFilter === 'ADMIN')    users = users.filter(u => u.rol === 'ADMIN');
-      if (userFilter === 'PROFESOR') users = users.filter(u => u.rol === 'PROFESOR');
-      if (userFilter === 'USER')     users = users.filter(u => u.rol === 'USER' && u.activo);
-      if (userFilter === 'inactive') users = users.filter(u => !u.activo);
-      // 'all' → activos de todos los roles
-      if (userFilter === 'all')      users = users.filter(u => u.activo);
-
+      const users = await API.getUsers();
       tbl.innerHTML = `
         <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Registro</th><th></th></tr></thead>
         <tbody>${users.map(u => {
-          // Admin no puede darse de baja a sí mismo ni a otros admins
-          const canKick = u.id !== session.id && u.rol !== 'ADMIN' && u.activo;
-          return `<tr style="${!u.activo ? 'opacity:0.5;' : ''}">
+          const esEliminado = !u.activo && u.email.startsWith('eliminado_');
+          return `<tr style="${esEliminado ? 'opacity:.45;' : ''}">
             <td>${u.nombre}</td>
-            <td style="font-family:var(--mono);font-size:0.78rem;color:var(--text2);">${u.email}</td>
+            <td style="font-family:var(--mono);font-size:.78rem;color:var(--text2);">${esEliminado ? '—' : u.email}</td>
             <td><span class="nav-role ${API.rolClass(u.rol)}">${API.rolLabel(u.rol)}</span></td>
-            <td style="font-size:0.8rem;color:${u.activo ? 'var(--ok)' : 'var(--danger)'};">${u.activo ? '● Activo' : '● Inactivo'}</td>
-            <td style="font-family:var(--mono);font-size:0.75rem;color:var(--text3);">${API.formatDate(u.fechaCreacion)}</td>
-            <td>${canKick ? `<button class="btn btn-danger btn-sm" onclick="kickUser(${u.id},'${u.nombre}','${u.rol}')">Dar de baja</button>` : ''}</td>
+            <td style="font-size:.8rem;color:${u.activo ? 'var(--ok)' : 'var(--danger)'};">
+              ${u.activo ? '● Activo' : '● Dado de baja'}
+            </td>
+            <td style="font-family:var(--mono);font-size:.75rem;color:var(--text3);">${API.formatDate(u.fechaCreacion)}</td>
+            <td>
+              ${u.rol !== 'ADMIN' && !esEliminado
+                ? `<button class="btn btn-danger btn-sm" onclick="darDeBaja(${u.id}, '${u.nombre}')">Dar de baja</button>`
+                : ''}
+            </td>
           </tr>`;
         }).join('')}</tbody>`;
     } catch(e) {
@@ -372,16 +345,21 @@
     }
   }
 
-  async function kickUser(id, nombre, rol) {
-    const rolLabel = API.rolLabel(rol);
-    if (!confirm(`¿Dar de baja a ${nombre} (${rolLabel})?\nNo podrá iniciar sesión. Sus tickets e historial se conservan.`)) return;
+  async function darDeBaja(id, nombre) {
+    if (!confirm(
+      `¿Dar de baja a "${nombre}"?\n\n` +
+      `• Su nombre, email y contraseña serán eliminados de forma permanente.\n` +
+      `• Sus tickets e historial de actividad quedarán registrados (sin datos personales).\n` +
+      `• El email quedará libre para que otra persona pueda registrarse con él.\n\n` +
+      `Esta acción NO se puede deshacer.`
+    )) return;
     try {
       await API.deleteUser(id);
-      renderUsers();
+      await renderUsers();
     } catch(e) { alert('Error: ' + e.message); }
   }
 
-  // ─── TODOS LOS TICKETS ────────────────────────────────────
+  // ─── TODOS LOS TICKETS ─────────────────────────────────────────────────────
   async function renderAllTickets() {
     const container = document.getElementById('allTickets');
     if (!allTickets.length) {
@@ -389,7 +367,7 @@
     }
     container.innerHTML = allTickets.map(t => {
       const isProf = ['PROFESOR','ADMIN'].includes(t.creadoPor?.rol);
-      return `<div class="comment" style="margin-bottom:0.5rem;">
+      return `<div class="comment" style="margin-bottom:.5rem;">
         <div class="comment-head">
           <div class="avatar ${isProf ? 'av-prof' : 'av-alu'}">${API.avatar(t.creadoPor?.nombre)}</div>
           <span class="comment-name">${t.creadoPor?.nombre ?? 'Usuario'}</span>
@@ -412,7 +390,7 @@
     } catch(e) { alert('Error: ' + e.message); }
   }
 
-  // ─── Init ─────────────────────────────────────────────────
+  // ─── Init ──────────────────────────────────────────────────────────────────
   loadData().then(() => renderDash());
 </script>
 </body>

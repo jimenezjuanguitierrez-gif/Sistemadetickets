@@ -1,0 +1,65 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PC Forum — docker-compose.yml
+#
+# Servicios:
+#   postgres  →  Base de datos PostgreSQL 16
+#   app       →  API Node.js + Frontend estático (puerto 3000)
+#
+# Uso rápido:
+#   docker compose up -d          # Iniciar en segundo plano
+#   docker compose logs -f app    # Ver logs del servidor
+#   docker compose down           # Detener (los datos persisten en el volumen)
+#   docker compose down -v        # Detener Y borrar todos los datos
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Base de datos ───────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: pcforum_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       helpdesk_db
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-pcforum_pass_2024}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # Solo exponer el puerto al host si necesitás conectarte con pgAdmin o similar.
+    # Comentarlo en producción para no exponer la BD al exterior.
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d helpdesk_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Aplicación ──────────────────────────────────────────────────────────────
+  app:
+    build: .
+    container_name: pcforum_app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV:      production
+      PORT:          3000
+      DATABASE_URL:  postgresql://postgres:${DB_PASSWORD:-pcforum_pass_2024}@postgres:5432/helpdesk_db
+      JWT_SECRET:    ${JWT_SECRET:-helpdesk_jwt_super_secreto_2024_cambiar_en_prod}
+      JWT_EXPIRES_IN: 7d
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    # Montar el directorio Frontend como volumen para poder actualizar
+    # los archivos HTML/CSS/JS sin reconstruir la imagen.
+    volumes:
+      - ./Frontend:/app/Frontend:ro
+
+# ─── Volúmenes persistentes ──────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    name: pcforum_postgres_data

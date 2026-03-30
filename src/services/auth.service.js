@@ -4,6 +4,9 @@ import { prisma } from '../config/prisma.js';
 import { AppError } from '../middlewares/AppError.js';
 import { env } from '../config/env.js';
 
+// Roles que se pueden elegir al registrarse (ADMIN solo via seed)
+const ROLES_REGISTRABLES = ['USER', 'PROFESOR'];
+
 export const register = async (data) => {
   const { nombre, email, password, rol } = data;
 
@@ -15,22 +18,22 @@ export const register = async (data) => {
     throw AppError.badRequest('Email y password son obligatorios');
   }
 
+  // Validar rol — nunca dejar que el cliente asigne ADMIN
+  const rolFinal = ROLES_REGISTRABLES.includes(rol) ? rol : 'USER';
+
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
     throw AppError.conflict('El email ya está registrado');
   }
 
-  // Solo se permiten PROFESOR y USER desde el registro público; ADMIN solo por seed
-  const rolAsignado = rol === 'PROFESOR' ? 'PROFESOR' : 'USER';
-
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.create({
     data: {
-      nombre:   nombre.trim(),
+      nombre: nombre.trim(),
       email,
       password: hashedPassword,
-      rol:      rolAsignado,
+      rol: rolFinal,
     },
   });
 
@@ -47,16 +50,15 @@ export const login = async (data) => {
 
   const user = await prisma.user.findUnique({ where: { email } });
 
-  // No distinguir entre email incorrecto y contraseña incorrecta (anti-enumeración)
-  if (!user) throw AppError.unauthorized('Credenciales incorrectas');
-
-  // Verificar que la cuenta esté activa
-  if (!user.activo) {
-    throw AppError.unauthorized('Tu cuenta fue desactivada. Contactá al administrador.');
+  if (!user || !user.activo) {
+    // No distinguir entre "email inexistente" y "contraseña incorrecta" (anti-enumeración)
+    throw AppError.unauthorized('Credenciales incorrectas');
   }
 
   const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) throw AppError.unauthorized('Credenciales incorrectas');
+  if (!isMatch) {
+    throw AppError.unauthorized('Credenciales incorrectas');
+  }
 
   const token = jwt.sign(
     { id: user.id, email: user.email, rol: user.rol, nombre: user.nombre },
@@ -67,3 +69,4 @@ export const login = async (data) => {
   const { password: _, ...userWithoutPassword } = user;
   return { user: userWithoutPassword, token };
 };
+  
