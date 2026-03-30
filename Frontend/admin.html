@@ -29,7 +29,9 @@
       <button class="side-item" onclick="show('usuarios',this)">👥 Usuarios</button>
       <button class="side-item" onclick="show('tickets',this)">🎫 Todos los tickets</button>
       <div class="side-label">Vistas</div>
-      <a href="hub-profesor.html" class="side-item">📚 Vista Profesor</a>
+      <!-- Abre en nueva pestaña para no perder la sesión de admin -->
+      <a href="hub-profesor.html" target="_blank" class="side-item">📚 Vista Profesor</a>
+      <a href="hub-alumno.html" target="_blank" class="side-item">🎓 Vista Alumno</a>
     </div>
 
     <!-- MAIN -->
@@ -119,7 +121,14 @@
       <div class="view" id="view-usuarios">
         <div class="page-header">
           <div class="page-title">Usuarios</div>
-          <div class="page-sub">// todos los registrados en el sistema</div>
+          <div class="page-sub">// gestión de todos los usuarios registrados</div>
+        </div>
+        <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+          <button class="chip active" onclick="setUserFilter('all',this)">Todos</button>
+          <button class="chip" onclick="setUserFilter('ADMIN',this)">Admins</button>
+          <button class="chip" onclick="setUserFilter('PROFESOR',this)">Profesores</button>
+          <button class="chip" onclick="setUserFilter('USER',this)">Alumnos</button>
+          <button class="chip" onclick="setUserFilter('inactive',this)">Dados de baja</button>
         </div>
         <div class="tbl-wrap">
           <table class="tbl" id="usersTable"></table>
@@ -145,11 +154,11 @@
   if (!session || session.rol !== 'ADMIN') API.logout();
   document.getElementById('userName').textContent = session.nombre;
 
-  let allPCs = [], allTickets = [], editId = null;
+  let allPCs = [], allTickets = [], editId = null, userFilter = 'all';
 
   async function loadData() {
-    try { allPCs     = await API.getPCs(); }        catch(e) { allPCs = []; }
-    try { allTickets = await API.getAllTickets(); }  catch(e) { allTickets = []; }
+    try { allPCs     = await API.getPCs(); }       catch(e) { allPCs = []; }
+    try { allTickets = await API.getAllTickets(); } catch(e) { allTickets = []; }
   }
 
   async function show(view, btn) {
@@ -195,7 +204,7 @@
   // ─── ACTIVIDAD ────────────────────────────────────────────
   function renderActivity() {
     const feed   = document.getElementById('actFeed');
-    const sorted = [...allTickets].sort((a,b) => new Date(b.fechaCreacion)-new Date(a.fechaCreacion)).slice(0,20);
+    const sorted = [...allTickets].sort((a,b) => new Date(b.fechaCreacion)-new Date(a.fechaCreacion)).slice(0,25);
     const dotColor = { PROBLEMA:'var(--danger)', SOLUCION:'var(--ok)', IDEA:'#a78bfa', INFO:'var(--text3)' };
     if (!sorted.length) { feed.innerHTML = `<div class="empty"><span>📋</span>Sin actividad aún.</div>`; return; }
     feed.innerHTML = sorted.map(t => `
@@ -217,7 +226,7 @@
   function renderPCs() {
     document.getElementById('pcsTable').innerHTML = `
       <thead><tr>
-        <th>Código</th><th>Nombre</th><th>Marca / Modelo</th>
+        <th>Código</th><th>Nombre</th><th>Lab</th><th>Marca / Modelo</th>
         <th>Estado</th><th>Tickets</th><th></th>
       </tr></thead>
       <tbody>${allPCs.map(pc => {
@@ -225,6 +234,7 @@
         return `<tr>
           <td><span style="font-family:var(--mono);font-size:0.8rem;">${pc.codigo}</span></td>
           <td>${pc.nombre}</td>
+          <td style="color:var(--text3);font-size:0.78rem;">${API.labLabel(pc.lab)}</td>
           <td style="color:var(--text3);">${[pc.marca, pc.modelo].filter(Boolean).join(' ') || '—'}</td>
           <td><span class="status-badge status-${pc.estado}">${API.estadoLabel(pc.estado)}</span></td>
           <td><span style="font-family:var(--mono);font-size:0.78rem;">${cnt}</span></td>
@@ -321,24 +331,54 @@
   }
 
   // ─── USUARIOS ─────────────────────────────────────────────
+  function setUserFilter(f, btn) {
+    userFilter = f;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    renderUsers();
+  }
+
   async function renderUsers() {
     const tbl = document.getElementById('usersTable');
-    tbl.innerHTML = `<thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Registro</th></tr></thead>
-      <tbody><tr><td colspan="5" style="text-align:center;color:var(--text3);padding:1.5rem;">Cargando…</td></tr></tbody>`;
+    tbl.innerHTML = `<thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Registro</th><th></th></tr></thead>
+      <tbody><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:1.5rem;">Cargando…</td></tr></tbody>`;
     try {
-      const users = await API.getUsers();
+      let users = await API.getUsers();
+
+      // Filtrar según selector
+      if (userFilter === 'ADMIN')    users = users.filter(u => u.rol === 'ADMIN');
+      if (userFilter === 'PROFESOR') users = users.filter(u => u.rol === 'PROFESOR');
+      if (userFilter === 'USER')     users = users.filter(u => u.rol === 'USER' && u.activo);
+      if (userFilter === 'inactive') users = users.filter(u => !u.activo);
+      // 'all' → activos de todos los roles
+      if (userFilter === 'all')      users = users.filter(u => u.activo);
+
       tbl.innerHTML = `
-        <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Registro</th></tr></thead>
-        <tbody>${users.map(u => `<tr>
-          <td>${u.nombre}</td>
-          <td style="font-family:var(--mono);font-size:0.78rem;color:var(--text2);">${u.email}</td>
-          <td><span class="nav-role ${API.rolClass(u.rol)}">${API.rolLabel(u.rol)}</span></td>
-          <td style="font-size:0.8rem;color:${u.activo ? 'var(--ok)' : 'var(--danger)'};">${u.activo ? '● Activo' : '● Inactivo'}</td>
-          <td style="font-family:var(--mono);font-size:0.75rem;color:var(--text3);">${API.formatDate(u.fechaCreacion)}</td>
-        </tr>`).join('')}</tbody>`;
+        <thead><tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Estado</th><th>Registro</th><th></th></tr></thead>
+        <tbody>${users.map(u => {
+          // Admin no puede darse de baja a sí mismo ni a otros admins
+          const canKick = u.id !== session.id && u.rol !== 'ADMIN' && u.activo;
+          return `<tr style="${!u.activo ? 'opacity:0.5;' : ''}">
+            <td>${u.nombre}</td>
+            <td style="font-family:var(--mono);font-size:0.78rem;color:var(--text2);">${u.email}</td>
+            <td><span class="nav-role ${API.rolClass(u.rol)}">${API.rolLabel(u.rol)}</span></td>
+            <td style="font-size:0.8rem;color:${u.activo ? 'var(--ok)' : 'var(--danger)'};">${u.activo ? '● Activo' : '● Inactivo'}</td>
+            <td style="font-family:var(--mono);font-size:0.75rem;color:var(--text3);">${API.formatDate(u.fechaCreacion)}</td>
+            <td>${canKick ? `<button class="btn btn-danger btn-sm" onclick="kickUser(${u.id},'${u.nombre}','${u.rol}')">Dar de baja</button>` : ''}</td>
+          </tr>`;
+        }).join('')}</tbody>`;
     } catch(e) {
-      tbl.innerHTML = `<tbody><tr><td colspan="5" style="color:var(--danger);padding:1rem;">Error: ${e.message}</td></tr></tbody>`;
+      tbl.innerHTML = `<tbody><tr><td colspan="6" style="color:var(--danger);padding:1rem;">Error: ${e.message}</td></tr></tbody>`;
     }
+  }
+
+  async function kickUser(id, nombre, rol) {
+    const rolLabel = API.rolLabel(rol);
+    if (!confirm(`¿Dar de baja a ${nombre} (${rolLabel})?\nNo podrá iniciar sesión. Sus tickets e historial se conservan.`)) return;
+    try {
+      await API.deleteUser(id);
+      renderUsers();
+    } catch(e) { alert('Error: ' + e.message); }
   }
 
   // ─── TODOS LOS TICKETS ────────────────────────────────────

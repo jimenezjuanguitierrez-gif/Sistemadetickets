@@ -16,22 +16,24 @@ export const crearTicket = async (data, usuarioId) => {
 
   const ticket = await prisma.ticket.create({
     data: {
-      titulo: titulo.trim(),
-      descripcion: descripcion.trim(),
-      prioridad: prioridad ?? 'MEDIA',
-      creadoPorId: usuarioId,
+      titulo:        titulo.trim(),
+      descripcion:   descripcion.trim(),
+      prioridad:     prioridad ?? 'MEDIA',
+      creadoPorId:   usuarioId,
       computadoraId: computadoraId ?? null,
     },
     include: {
-      creadoPor: { select: { id: true, nombre: true, email: true } },
+      creadoPor: { select: { id: true, nombre: true, email: true, rol: true } },
+      computadora: { select: { id: true, codigo: true, nombre: true } },
     },
   });
 
+  // Registrar en historial
   await prisma.historial.create({
     data: {
-      accion: 'CREADO',
-      descripcion: `Ticket creado por el usuario ${usuarioId}`,
-      ticketId: ticket.id,
+      accion:      'CREADO',
+      descripcion: `Ticket "${titulo}" creado`,
+      ticketId:    ticket.id,
       usuarioId,
     },
   });
@@ -44,10 +46,20 @@ export const obtenerMisTickets = async (usuarioId) => {
     where: { creadoPorId: usuarioId },
     include: {
       computadora: true,
-      creadoPor: { select: { id: true, nombre: true, email: true } },
-      asignadoA: { select: { id: true, nombre: true, email: true } },
+      creadoPor:   { select: { id: true, nombre: true, email: true, rol: true } },
+      asignadoA:   { select: { id: true, nombre: true, email: true } },
     },
     orderBy: { fechaCreacion: 'desc' },
+  });
+};
+
+export const obtenerTicketsPorPC = async (computadoraId) => {
+  return await prisma.ticket.findMany({
+    where: { computadoraId },
+    include: {
+      creadoPor: { select: { id: true, nombre: true, email: true, rol: true } },
+    },
+    orderBy: { fechaCreacion: 'asc' },
   });
 };
 
@@ -55,8 +67,8 @@ export const obtenerTodosLosTickets = async () => {
   return await prisma.ticket.findMany({
     include: {
       computadora: true,
-      creadoPor: { select: { id: true, nombre: true, email: true } },
-      asignadoA: { select: { id: true, nombre: true, email: true } },
+      creadoPor:   { select: { id: true, nombre: true, email: true, rol: true } },
+      asignadoA:   { select: { id: true, nombre: true, email: true } },
     },
     orderBy: { fechaCreacion: 'desc' },
   });
@@ -69,22 +81,21 @@ export const cambiarEstado = async (ticketId, nuevoEstado, usuarioId) => {
 
   if (!ESTADOS_VALIDOS.includes(nuevoEstado)) {
     throw AppError.badRequest(
-      `Estado inválido. Los valores permitidos son: ${ESTADOS_VALIDOS.join(', ')}`
+      `Estado inválido. Valores permitidos: ${ESTADOS_VALIDOS.join(', ')}`
     );
   }
 
   const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
-
   if (!ticket) throw AppError.notFound('Ticket no encontrado');
 
   const ticketActualizado = await prisma.ticket.update({
     where: { id: ticketId },
-    data: { estado: nuevoEstado },
+    data:  { estado: nuevoEstado },
   });
 
   await prisma.historial.create({
     data: {
-      accion: 'CAMBIO_ESTADO',
+      accion:      'CAMBIO_ESTADO',
       descripcion: `Estado cambiado de ${ticket.estado} a ${nuevoEstado}`,
       ticketId,
       usuarioId,
@@ -96,18 +107,12 @@ export const cambiarEstado = async (ticketId, nuevoEstado, usuarioId) => {
 
 export const eliminarTicket = async (ticketId, usuarioId) => {
   const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
-
   if (!ticket) throw AppError.notFound('Ticket no encontrado');
 
-  await prisma.historial.create({
-    data: {
-      accion: 'ELIMINADO',
-      descripcion: `Ticket eliminado por el usuario ${usuarioId}`,
-      ticketId,
-      usuarioId,
-    },
-  });
+  // Primero eliminar el historial asociado al ticket (FK RESTRICT)
+  await prisma.historial.deleteMany({ where: { ticketId } });
 
+  // Luego eliminar el ticket
   await prisma.ticket.delete({ where: { id: ticketId } });
 
   return { message: 'Ticket eliminado correctamente' };

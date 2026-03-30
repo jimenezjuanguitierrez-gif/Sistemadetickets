@@ -1,16 +1,19 @@
 // api.js — cliente HTTP para el backend Help Desk API
-// Reemplaza al antiguo data.js (localStorage)
 
 const API_URL = 'http://localhost:3000/api';
 
 const API = {
 
   // ─── Token / Sesión ────────────────────────────────────────
-  getToken()        { return localStorage.getItem('hd_token'); },
-  setToken(t)       { localStorage.setItem('hd_token', t); },
-  getSession()      { const s = localStorage.getItem('hd_session'); return s ? JSON.parse(s) : null; },
-  setSession(u)     { localStorage.setItem('hd_session', JSON.stringify(u)); },
-  logout()          { localStorage.removeItem('hd_token'); localStorage.removeItem('hd_session'); location.href = 'index.html'; },
+  getToken()    { return localStorage.getItem('hd_token'); },
+  setToken(t)   { localStorage.setItem('hd_token', t); },
+  getSession()  { const s = localStorage.getItem('hd_session'); return s ? JSON.parse(s) : null; },
+  setSession(u) { localStorage.setItem('hd_session', JSON.stringify(u)); },
+  logout()      {
+    localStorage.removeItem('hd_token');
+    localStorage.removeItem('hd_session');
+    location.href = 'index.html';
+  },
 
   // ─── HTTP helper ───────────────────────────────────────────
   async request(method, endpoint, body) {
@@ -29,10 +32,10 @@ const API = {
     return data;
   },
 
-  get(ep)          { return this.request('GET', ep); },
-  post(ep, body)   { return this.request('POST', ep, body); },
-  put(ep, body)    { return this.request('PUT', ep, body); },
-  del(ep)          { return this.request('DELETE', ep); },
+  get(ep)        { return this.request('GET', ep); },
+  post(ep, body) { return this.request('POST', ep, body); },
+  put(ep, body)  { return this.request('PUT', ep, body); },
+  del(ep)        { return this.request('DELETE', ep); },
 
   // ─── Auth ──────────────────────────────────────────────────
   async login(email, password) {
@@ -48,9 +51,9 @@ const API = {
   },
 
   redirect(rol) {
-    if (rol === 'ADMIN')    location.href = 'admin.html';
+    if (rol === 'ADMIN')         location.href = 'admin.html';
     else if (rol === 'PROFESOR') location.href = 'hub-profesor.html';
-    else location.href = 'hub-alumno.html';
+    else                         location.href = 'hub-alumno.html';
   },
 
   // ─── Computadoras ──────────────────────────────────────────
@@ -60,16 +63,17 @@ const API = {
   async updatePC(id, d) { return (await this.put(`/computadoras/${id}`, d)).data; },
   async deletePC(id)    { return this.del(`/computadoras/${id}`); },
 
-  // ─── Tickets (comentarios del foro) ────────────────────────
-  async getTicketsByPC(pcId)  { return (await this.get(`/tickets/computadora/${pcId}`)).data; },
-  async getAllTickets()         { return (await this.get('/tickets')).data; },
-  async getMyTickets()         { return (await this.get('/tickets/mios')).data; },
-  async createTicket(body)     { return (await this.post('/tickets', body)).data; },
+  // ─── Tickets ───────────────────────────────────────────────
+  async getTicketsByPC(pcId)           { return (await this.get(`/tickets/computadora/${pcId}`)).data; },
+  async getAllTickets()                 { return (await this.get('/tickets')).data; },
+  async getMyTickets()                 { return (await this.get('/tickets/mios')).data; },
+  async createTicket(body)             { return (await this.post('/tickets', body)).data; },
   async updateTicketStatus(id, estado) { return (await this.put(`/tickets/${id}/estado`, { estado })).data; },
-  async deleteTicket(id)       { return this.del(`/tickets/${id}`); },
+  async deleteTicket(id)               { return this.del(`/tickets/${id}`); },
 
   // ─── Users ─────────────────────────────────────────────────
-  async getUsers() { return (await this.get('/users')).data; },
+  async getUsers()     { return (await this.get('/users')).data; },
+  async deleteUser(id) { return (await this.del(`/users/${id}`)).data; },
 
   // ─── Helpers UI ────────────────────────────────────────────
   avatar(nombre) {
@@ -77,7 +81,7 @@ const API = {
   },
 
   labLabel(l) {
-    return { lab_a: 'Laboratorio A', lab_b: 'Laboratorio B', sala: 'Sala de Profesores', otros: 'Otros' }[l] || l;
+    return { lab_a: 'Laboratorio A', lab_b: 'Laboratorio B', sala: 'Sala Profesores', otros: 'Otros' }[l] || l;
   },
 
   estadoLabel(e) {
@@ -100,10 +104,19 @@ const API = {
     return { PROBLEMA: 'tag-prob', SOLUCION: 'tag-sol', IDEA: 'tag-idea', INFO: '' }[t] || '';
   },
 
+  tipoIcon(t) {
+    return { PROBLEMA: '🔴', SOLUCION: '✅', IDEA: '💡', INFO: 'ℹ️' }[t] || '•';
+  },
+
   formatDate(iso) {
     const d = new Date(iso);
     return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' +
       d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  },
+
+  formatDateShort(iso) {
+    const d = new Date(iso);
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' });
   },
 
   stats(pcs) {
@@ -115,7 +128,6 @@ const API = {
     };
   },
 
-  // Muestra un error en pantalla
   showError(elId, msg) {
     const el = document.getElementById(elId);
     if (!el) return;
