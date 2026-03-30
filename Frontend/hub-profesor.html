@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PC Forum — Hub Profesor</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <a href="hub-profesor.html" class="nav-brand">🖥️ PC Forum</a>
+  <div class="nav-spacer"></div>
+  <span class="nav-user-name" id="userName"></span>
+  <span class="nav-role" id="roleBadge"></span>
+  <button class="btn btn-ghost btn-sm" onclick="API.logout()">Salir</button>
+</nav>
+
+<div class="page-content">
+  <div class="container section">
+
+    <div class="welcome-bar">
+      Hola, <strong id="welcomeName"></strong> — Hacé clic en una PC para ver detalles, cambiar su estado o reportar un problema.
+    </div>
+
+    <div class="stats-row" id="statsRow"></div>
+
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem;">
+      <div class="page-header" style="margin-bottom:0;">
+        <div class="page-title">Computadoras</div>
+        <div class="page-sub">// seleccioná una para ver detalles y reportar</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <input type="text" class="search-input" id="search" placeholder="Buscar por código, nombre o marca…" oninput="renderPCs()" />
+      <button class="chip active" onclick="setFilter('all',this)">Todas</button>
+      <button class="chip" onclick="setFilter('ok',this)">Operativas</button>
+      <button class="chip" onclick="setFilter('warn',this)">Con problemas</button>
+      <button class="chip" onclick="setFilter('danger',this)">Críticas</button>
+    </div>
+
+    <div id="loadingMsg" style="text-align:center;padding:3rem;color:var(--text3);font-size:0.85rem;">
+      Cargando computadoras…
+    </div>
+    <div class="pc-grid" id="pcGrid"></div>
+  </div>
+</div>
+
+<!-- Overlay -->
+<div class="overlay" id="overlay" onclick="closePanel()"></div>
+
+<!-- Slide panel -->
+<div class="slide-panel" id="panel">
+  <div class="panel-head">
+    <div>
+      <div class="pc-num" id="pNum"></div>
+      <div class="pc-name" id="pName"></div>
+    </div>
+    <button class="panel-close" onclick="closePanel()">✕</button>
+  </div>
+
+  <div class="panel-body">
+    <div class="specs-grid" id="pSpecs"></div>
+
+    <div class="sec-head">Estado de la PC</div>
+    <div class="status-selector" id="statusSel"></div>
+
+    <div class="sec-head">Nuevo reporte</div>
+    <div class="tipo-row">
+      <button class="tipo-opt active" id="t-PROBLEMA" onclick="setTipo('PROBLEMA')">🔴 Problema</button>
+      <button class="tipo-opt" id="t-INFO" onclick="setTipo('INFO')">ℹ️ Info general</button>
+    </div>
+    <div class="compose">
+      <textarea id="commentText" placeholder="Describí el problema o la situación con detalle…" maxlength="500"></textarea>
+      <div class="compose-foot">
+        <span class="char-cnt"><span id="charCount">0</span> / 500</span>
+        <button class="btn btn-primary btn-sm" id="submitBtn" onclick="submit()">Publicar</button>
+      </div>
+    </div>
+    <div class="inline-alert" id="composeAlert"></div>
+
+    <div class="sec-head">Historial de tickets (<span id="cCount">0</span>)</div>
+    <div id="commentsList"></div>
+  </div>
+</div>
+
+<script src="api.js"></script>
+<script>
+  const session = API.getSession();
+  if (!session || !['PROFESOR','ADMIN'].includes(session.rol)) API.logout();
+
+  document.getElementById('userName').textContent = session.nombre;
+  document.getElementById('welcomeName').textContent = session.nombre.split(' ')[0];
+  const badge = document.getElementById('roleBadge');
+  badge.textContent = API.rolLabel(session.rol);
+  badge.className = 'nav-role ' + API.rolClass(session.rol);
+
+  let filter = 'all', currentId = null, tipo = 'PROBLEMA', allPCs = [];
+
+  async function init() {
+    try {
+      allPCs = await API.getPCs();
+      document.getElementById('loadingMsg').style.display = 'none';
+      renderStats();
+      renderPCs();
+    } catch (e) {
+      document.getElementById('loadingMsg').textContent = '⚠️ Error: ' + e.message;
+    }
+  }
+
+  function renderStats() {
+    const s = API.stats(allPCs);
+    document.getElementById('statsRow').innerHTML = `
+      <div class="stat-box">
+        <div class="stat-num">${s.total}</div>
+        <div class="stat-lbl">Total PCs</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" style="color:var(--ok)">${s.ok}</div>
+        <div class="stat-lbl">Operativas</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" style="color:var(--warn)">${s.warn}</div>
+        <div class="stat-lbl">Con problemas</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" style="color:var(--danger)">${s.danger}</div>
+        <div class="stat-lbl">Críticas</div>
+      </div>
+    `;
+  }
+
+  function setFilter(f, btn) {
+    filter = f;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    renderPCs();
+  }
+
+  function renderPCs() {
+    const q = document.getElementById('search').value.toLowerCase();
+    let pcs = allPCs;
+    if (filter !== 'all') pcs = pcs.filter(p => p.estado === filter);
+    if (q) pcs = pcs.filter(p => (p.codigo + p.nombre + p.marca).toLowerCase().includes(q));
+
+    const grid = document.getElementById('pcGrid');
+    if (!pcs.length) {
+      grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><span>🔍</span>No se encontraron PCs.</div>`;
+      return;
+    }
+    grid.innerHTML = pcs.map(pc => {
+      const cnt = pc._count?.tickets ?? 0;
+      return `<div class="pc-card pc-${pc.estado}" onclick="openPanel(${pc.id})">
+        <div class="pc-num">${pc.codigo}</div>
+        <div class="pc-name">${pc.nombre}</div>
+        <div class="pc-spec">${[pc.marca, pc.modelo].filter(Boolean).join(' ') || '—'}<br>${pc.procesador || ''}</div>
+        <div class="pc-footer">
+          <span class="status-badge status-${pc.estado}">${API.estadoLabel(pc.estado)}</span>
+          <span class="pc-comment-count">${cnt} ticket${cnt !== 1 ? 's' : ''}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function openPanel(id) {
+    currentId = id;
+    const pc = allPCs.find(p => p.id === id);
+
+    document.getElementById('pNum').textContent = pc.codigo;
+    document.getElementById('pName').textContent = pc.nombre;
+    document.getElementById('pSpecs').innerHTML = [
+      ['Laboratorio',    API.labLabel(pc.lab)],
+      ['Marca / Modelo', [pc.marca, pc.modelo].filter(Boolean).join(' ') || '—'],
+      ['Procesador',     pc.procesador || '—'],
+      ['RAM',            pc.ram || '—'],
+      ['Almacenamiento', pc.disco || '—'],
+      ['Sistema op.',    pc.os || '—'],
+    ].map(([k,v]) => `
+      <div class="spec-row">
+        <div class="spec-key">${k}</div>
+        <div class="spec-val">${v}</div>
+      </div>`).join('');
+
+    renderStatusSel(pc.estado);
+    document.getElementById('commentText').value = '';
+    document.getElementById('charCount').textContent = '0';
+    document.getElementById('composeAlert').className = 'inline-alert';
+    setTipo('PROBLEMA');
+
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('panel').classList.add('show');
+
+    await loadComments();
+  }
+
+  function renderStatusSel(current) {
+    const opts = [['ok','✅ Operativa'],['warn','⚠️ Con problemas'],['danger','🔴 Crítica']];
+    document.getElementById('statusSel').innerHTML = opts.map(([val, lbl]) =>
+      `<button class="status-opt ${current === val ? 'sel-'+val : ''}" onclick="changeEstado('${val}')">${lbl}</button>`
+    ).join('');
+  }
+
+  async function changeEstado(estado) {
+    try {
+      await API.updatePC(currentId, { estado });
+      const idx = allPCs.findIndex(p => p.id === currentId);
+      if (idx >= 0) allPCs[idx].estado = estado;
+      renderStatusSel(estado);
+      renderPCs();
+      renderStats();
+    } catch (e) {
+      alert('Error al cambiar estado: ' + e.message);
+    }
+  }
+
+  function closePanel() {
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('panel').classList.remove('show');
+    currentId = null;
+  }
+
+  function setTipo(t) {
+    tipo = t;
+    ['PROBLEMA','INFO'].forEach(opt =>
+      document.getElementById('t-' + opt).classList.toggle('active', opt === t)
+    );
+  }
+
+  document.getElementById('commentText').addEventListener('input', function() {
+    document.getElementById('charCount').textContent = this.value.length;
+  });
+
+  async function submit() {
+    const text = document.getElementById('commentText').value.trim();
+    const al   = document.getElementById('composeAlert');
+    const btn  = document.getElementById('submitBtn');
+    al.className = 'inline-alert';
+
+    if (!text || text.length < 5) {
+      al.textContent = 'Escribí al menos 5 caracteres.';
+      al.className = 'inline-alert err show';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Publicando…';
+    try {
+      await API.createTicket({ titulo: tipo, descripcion: text, computadoraId: currentId });
+      document.getElementById('commentText').value = '';
+      document.getElementById('charCount').textContent = '0';
+      al.textContent = '✓ Publicado correctamente.';
+      al.className = 'inline-alert ok show';
+      setTimeout(() => al.classList.remove('show'), 2500);
+
+      const idx = allPCs.findIndex(p => p.id === currentId);
+      if (idx >= 0 && allPCs[idx]._count)
+        allPCs[idx]._count.tickets = (allPCs[idx]._count.tickets ?? 0) + 1;
+      renderPCs();
+      await loadComments();
+    } catch (e) {
+      al.textContent = 'Error: ' + e.message;
+      al.className = 'inline-alert err show';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Publicar';
+    }
+  }
+
+  async function loadComments() {
+    const list = document.getElementById('commentsList');
+    list.innerHTML = `<div style="padding:1rem 0;color:var(--text3);font-size:0.8rem;font-family:var(--mono);">Cargando…</div>`;
+    try {
+      const tickets = await API.getTicketsByPC(currentId);
+      document.getElementById('cCount').textContent = tickets.length;
+      if (!tickets.length) {
+        list.innerHTML = `<div class="empty"><span>💬</span>Sin tickets aún.</div>`;
+        return;
+      }
+      list.innerHTML = [...tickets].reverse().map(t => {
+        const isProf = ['PROFESOR','ADMIN'].includes(t.creadoPor?.rol);
+        return `<div class="comment">
+          <div class="comment-head">
+            <div class="avatar ${isProf ? 'av-prof' : 'av-alu'}">${API.avatar(t.creadoPor?.nombre)}</div>
+            <span class="comment-name">${t.creadoPor?.nombre ?? 'Usuario'}</span>
+            <span class="comment-tag ${API.tipoClass(t.titulo)}">${API.tipoLabel(t.titulo)}</span>
+            <span class="comment-time">${API.formatDate(t.fechaCreacion)}</span>
+          </div>
+          <div class="comment-body">${t.descripcion}</div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      list.innerHTML = `<div class="empty"><span>⚠️</span>Error al cargar.</div>`;
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

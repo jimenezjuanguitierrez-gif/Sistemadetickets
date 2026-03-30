@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PC Forum — Hub Alumno</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <a href="hub-alumno.html" class="nav-brand">🖥️ PC Forum</a>
+  <div class="nav-spacer"></div>
+  <span class="nav-user-name" id="userName"></span>
+  <span class="nav-role role-alumno">Alumno</span>
+  <button class="btn btn-ghost btn-sm" onclick="API.logout()">Salir</button>
+</nav>
+
+<div class="page-content">
+  <div class="container section">
+
+    <div class="welcome-bar">
+      Hola, <strong id="welcomeName"></strong> — Podés ver los problemas reportados por los profesores y proponer soluciones o ideas.
+    </div>
+
+    <div class="stats-row" id="statsRow"></div>
+
+    <div class="page-header">
+      <div class="page-title">Computadoras</div>
+      <div class="page-sub">// hacé clic en una PC para ver sus reportes y participar</div>
+    </div>
+
+    <div class="filter-bar">
+      <input type="text" class="search-input" id="search" placeholder="Buscar por código, nombre o marca…" oninput="renderPCs()" />
+      <button class="chip active" onclick="setFilter('all',this)">Todas</button>
+      <button class="chip" onclick="setFilter('ok',this)">Operativas</button>
+      <button class="chip" onclick="setFilter('warn',this)">Con problemas</button>
+      <button class="chip" onclick="setFilter('danger',this)">Críticas</button>
+    </div>
+
+    <div id="loadingMsg" style="text-align:center;padding:3rem;color:var(--text3);font-size:0.85rem;">
+      Cargando computadoras…
+    </div>
+    <div class="pc-grid" id="pcGrid"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" onclick="closePanel()"></div>
+
+<div class="slide-panel" id="panel">
+  <div class="panel-head">
+    <div>
+      <div class="pc-num" id="pNum"></div>
+      <div class="pc-name" id="pName"></div>
+    </div>
+    <button class="panel-close" onclick="closePanel()">✕</button>
+  </div>
+
+  <div class="panel-body">
+    <div class="specs-grid" id="pSpecs"></div>
+
+    <div class="sec-head">Problemas reportados</div>
+    <div id="problemsArea"></div>
+
+    <div class="sec-head">Tu aporte</div>
+    <div class="tipo-row">
+      <button class="tipo-opt active" id="t-SOLUCION" onclick="setTipo('SOLUCION')">✅ Solución</button>
+      <button class="tipo-opt" id="t-IDEA" onclick="setTipo('IDEA')">💡 Idea</button>
+    </div>
+    <div class="compose">
+      <textarea id="commentText" placeholder="Describí tu solución o idea…" maxlength="500"></textarea>
+      <div class="compose-foot">
+        <span class="char-cnt"><span id="charCount">0</span> / 500</span>
+        <button class="btn btn-primary btn-sm" id="submitBtn" onclick="submit()">Publicar</button>
+      </div>
+    </div>
+    <div class="inline-alert" id="composeAlert"></div>
+
+    <div class="sec-head">Todos los comentarios (<span id="cCount">0</span>)</div>
+    <div id="commentsList"></div>
+  </div>
+</div>
+
+<script src="api.js"></script>
+<script>
+  const session = API.getSession();
+  if (!session || session.rol !== 'USER') API.logout();
+
+  document.getElementById('userName').textContent = session.nombre;
+  document.getElementById('welcomeName').textContent = session.nombre.split(' ')[0];
+
+  let filter = 'all', currentId = null, tipo = 'SOLUCION', allPCs = [];
+
+  async function init() {
+    try {
+      allPCs = await API.getPCs();
+      document.getElementById('loadingMsg').style.display = 'none';
+      renderStats();
+      renderPCs();
+    } catch (e) {
+      document.getElementById('loadingMsg').textContent = '⚠️ Error: ' + e.message;
+    }
+  }
+
+  function renderStats() {
+    const s = API.stats(allPCs);
+    document.getElementById('statsRow').innerHTML = `
+      <div class="stat-box"><div class="stat-num">${s.total}</div><div class="stat-lbl">Total PCs</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--ok)">${s.ok}</div><div class="stat-lbl">Operativas</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--warn)">${s.warn}</div><div class="stat-lbl">Con problemas</div></div>
+      <div class="stat-box"><div class="stat-num" style="color:var(--danger)">${s.danger}</div><div class="stat-lbl">Críticas</div></div>
+    `;
+  }
+
+  function setFilter(f, btn) {
+    filter = f;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    renderPCs();
+  }
+
+  function renderPCs() {
+    const q = document.getElementById('search').value.toLowerCase();
+    let pcs = allPCs;
+    if (filter !== 'all') pcs = pcs.filter(p => p.estado === filter);
+    if (q) pcs = pcs.filter(p => (p.codigo + p.nombre + p.marca).toLowerCase().includes(q));
+
+    const grid = document.getElementById('pcGrid');
+    if (!pcs.length) {
+      grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><span>🔍</span>No se encontraron PCs.</div>`;
+      return;
+    }
+    grid.innerHTML = pcs.map(pc => {
+      const cnt = pc._count?.tickets ?? 0;
+      return `<div class="pc-card pc-${pc.estado}" onclick="openPanel(${pc.id})">
+        <div class="pc-num">${pc.codigo}</div>
+        <div class="pc-name">${pc.nombre}</div>
+        <div class="pc-spec">${[pc.marca, pc.modelo].filter(Boolean).join(' ') || '—'}<br>${pc.procesador || ''}</div>
+        <div class="pc-footer">
+          <span class="status-badge status-${pc.estado}">${API.estadoLabel(pc.estado)}</span>
+          <span class="pc-comment-count">${cnt} ticket${cnt !== 1 ? 's' : ''}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  async function openPanel(id) {
+    currentId = id;
+    const pc = allPCs.find(p => p.id === id);
+
+    document.getElementById('pNum').textContent = pc.codigo;
+    document.getElementById('pName').textContent = pc.nombre;
+    document.getElementById('pSpecs').innerHTML = [
+      ['Laboratorio',    API.labLabel(pc.lab)],
+      ['Marca / Modelo', [pc.marca, pc.modelo].filter(Boolean).join(' ') || '—'],
+      ['Procesador',     pc.procesador || '—'],
+      ['RAM',            pc.ram || '—'],
+      ['Estado',         `<span class="status-badge status-${pc.estado}">${API.estadoLabel(pc.estado)}</span>`],
+      ['Sistema op.',    pc.os || '—'],
+    ].map(([k,v]) => `
+      <div class="spec-row">
+        <div class="spec-key">${k}</div>
+        <div class="spec-val">${v}</div>
+      </div>`).join('');
+
+    document.getElementById('commentText').value = '';
+    document.getElementById('charCount').textContent = '0';
+    document.getElementById('composeAlert').className = 'inline-alert';
+    setTipo('SOLUCION');
+
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('panel').classList.add('show');
+
+    await loadComments();
+  }
+
+  function closePanel() {
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('panel').classList.remove('show');
+    currentId = null;
+  }
+
+  function setTipo(t) {
+    tipo = t;
+    ['SOLUCION','IDEA'].forEach(opt =>
+      document.getElementById('t-' + opt).classList.toggle('active', opt === t)
+    );
+  }
+
+  document.getElementById('commentText').addEventListener('input', function() {
+    document.getElementById('charCount').textContent = this.value.length;
+  });
+
+  async function submit() {
+    const text = document.getElementById('commentText').value.trim();
+    const al   = document.getElementById('composeAlert');
+    const btn  = document.getElementById('submitBtn');
+    al.className = 'inline-alert';
+
+    if (!text || text.length < 5) {
+      al.textContent = 'Escribí al menos 5 caracteres.';
+      al.className = 'inline-alert err show';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Publicando…';
+    try {
+      await API.createTicket({ titulo: tipo, descripcion: text, computadoraId: currentId });
+      document.getElementById('commentText').value = '';
+      document.getElementById('charCount').textContent = '0';
+      al.textContent = '✓ Aporte publicado.';
+      al.className = 'inline-alert ok show';
+      setTimeout(() => al.classList.remove('show'), 2500);
+
+      const idx = allPCs.findIndex(p => p.id === currentId);
+      if (idx >= 0 && allPCs[idx]._count)
+        allPCs[idx]._count.tickets = (allPCs[idx]._count.tickets ?? 0) + 1;
+      renderPCs();
+      await loadComments();
+    } catch (e) {
+      al.textContent = 'Error: ' + e.message;
+      al.className = 'inline-alert err show';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Publicar';
+    }
+  }
+
+  async function loadComments() {
+    const list     = document.getElementById('commentsList');
+    const probArea = document.getElementById('problemsArea');
+    list.innerHTML = `<div style="padding:1rem 0;color:var(--text3);font-size:0.8rem;font-family:var(--mono);">Cargando…</div>`;
+    probArea.innerHTML = '';
+
+    try {
+      const tickets = await API.getTicketsByPC(currentId);
+      document.getElementById('cCount').textContent = tickets.length;
+
+      const probs = tickets.filter(t => t.titulo === 'PROBLEMA');
+      probArea.innerHTML = probs.length
+        ? probs.map(p => `
+            <div class="prob-box">
+              <div class="prob-meta">${p.creadoPor?.nombre ?? 'Profesor'} — ${API.formatDate(p.fechaCreacion)}</div>
+              <p>${p.descripcion}</p>
+            </div>`).join('')
+        : `<div class="no-prob">No hay problemas reportados en esta PC.</div>`;
+
+      if (!tickets.length) {
+        list.innerHTML = `<div class="empty"><span>💬</span>Sin tickets aún.</div>`;
+        return;
+      }
+      list.innerHTML = [...tickets].reverse().map(t => {
+        const isProf = ['PROFESOR','ADMIN'].includes(t.creadoPor?.rol);
+        return `<div class="comment">
+          <div class="comment-head">
+            <div class="avatar ${isProf ? 'av-prof' : 'av-alu'}">${API.avatar(t.creadoPor?.nombre)}</div>
+            <span class="comment-name">${t.creadoPor?.nombre ?? 'Usuario'}</span>
+            <span class="comment-tag ${API.tipoClass(t.titulo)}">${API.tipoLabel(t.titulo)}</span>
+            <span class="comment-time">${API.formatDate(t.fechaCreacion)}</span>
+          </div>
+          <div class="comment-body">${t.descripcion}</div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      list.innerHTML = `<div class="empty"><span>⚠️</span>Error al cargar.</div>`;
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

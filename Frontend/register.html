@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PC Forum — Crear cuenta</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-box">
+      <div>
+        <div class="auth-logo">🖥️ PC Forum</div>
+        <div class="auth-desc">// sistema de gestión de computadoras</div>
+      </div>
+
+      <div>
+        <div class="auth-title">Crear cuenta</div>
+        <div class="auth-sub">Completá los datos para registrarte</div>
+      </div>
+
+      <div class="alert alert-error"   id="err"></div>
+      <div class="alert alert-success" id="ok">¡Cuenta creada! Redirigiendo…</div>
+
+      <div class="form-group">
+        <label>Nombre completo</label>
+        <input type="text" id="nombre" placeholder="Juan Pérez" />
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="email" placeholder="juan@escuela.edu" />
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <input type="password" id="password" placeholder="Mínimo 4 caracteres" />
+      </div>
+      <div class="form-group">
+        <label>Confirmar contraseña</label>
+        <input type="password" id="password2" placeholder="Repetí la contraseña" />
+      </div>
+
+      <div class="form-group">
+        <label>Tipo de cuenta</label>
+        <div class="role-grid">
+          <div class="role-opt" id="opt-PROFESOR" onclick="selRol('PROFESOR')">
+            <div class="role-icon">📚</div>
+            <div class="role-name">Profesor</div>
+            <div class="role-hint">Reporta y gestiona problemas</div>
+          </div>
+          <div class="role-opt" id="opt-USER" onclick="selRol('USER')">
+            <div class="role-icon">🎓</div>
+            <div class="role-name">Alumno</div>
+            <div class="role-hint">Propone soluciones e ideas</div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-full" id="regBtn" onclick="doRegister()">
+        Crear cuenta
+      </button>
+
+      <div class="auth-footer">
+        ¿Ya tenés cuenta? <a href="index.html">Iniciar sesión</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="api.js"></script>
+  <script>
+    const s = API.getSession();
+    if (s) API.redirect(s.rol);
+
+    let rol = '';
+
+    function selRol(r) {
+      rol = r;
+      document.getElementById('opt-PROFESOR').classList.toggle('sel', r === 'PROFESOR');
+      document.getElementById('opt-USER').classList.toggle('sel', r === 'USER');
+    }
+
+    async function doRegister() {
+      const nombre   = document.getElementById('nombre').value.trim();
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const pass2    = document.getElementById('password2').value;
+      const btn      = document.getElementById('regBtn');
+      const okEl     = document.getElementById('ok');
+      API.clearError('err');
+      okEl.classList.remove('show');
+
+      if (!nombre || !email || !password || !pass2)
+        return API.showError('err', 'Completá todos los campos.');
+      if (nombre.length < 3)
+        return API.showError('err', 'El nombre es muy corto (mínimo 3 caracteres).');
+      if (password.length < 4)
+        return API.showError('err', 'La contraseña debe tener al menos 4 caracteres.');
+      if (password !== pass2)
+        return API.showError('err', 'Las contraseñas no coinciden.');
+      if (!rol)
+        return API.showError('err', 'Seleccioná el tipo de cuenta.');
+
+      btn.disabled = true;
+      btn.textContent = 'Creando cuenta…';
+
+      try {
+        await API.register(nombre, email, password, rol);
+        okEl.classList.add('show');
+        const user = await API.login(email, password);
+        setTimeout(() => API.redirect(user.rol), 1000);
+      } catch (e) {
+        API.showError('err', e.message || 'Error al registrarse.');
+        btn.disabled = false;
+        btn.textContent = 'Crear cuenta';
+      }
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+  </script>
+</body>
+</html>
